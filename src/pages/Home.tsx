@@ -4,6 +4,7 @@ import { Sparkles, TrendingUp, Star, Play, Users } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MovieCard } from '@/components/movies/MovieCard';
 import { MovieRow } from '@/components/movies/MovieRow';
+import { MovieRowSkeleton } from '@/components/movies/MovieSkeleton';
 import { Button } from '@/components/ui/button';
 import { getTrendingMovies, getPopularMovies, getTopRatedMovies, getNowPlayingMovies } from '@/lib/tmdb';
 import { useWatchlist } from '@/hooks/useWatchlist';
@@ -13,22 +14,22 @@ export default function Home() {
   const navigate = useNavigate();
   const { addToWatchlist, markAsWatched, isInWatchlist, isWatched } = useWatchlist();
 
-  const { data: trending } = useQuery({
+  const { data: trending, isLoading: trendingLoading } = useQuery({
     queryKey: ['trending'],
     queryFn: () => getTrendingMovies('week'),
   });
 
-  const { data: popular } = useQuery({
+  const { data: popular, isLoading: popularLoading } = useQuery({
     queryKey: ['popular'],
     queryFn: () => getPopularMovies(),
   });
 
-  const { data: topRated } = useQuery({
+  const { data: topRated, isLoading: topRatedLoading } = useQuery({
     queryKey: ['topRated'],
     queryFn: () => getTopRatedMovies(),
   });
 
-  const { data: nowPlaying } = useQuery({
+  const { data: nowPlaying, isLoading: nowPlayingLoading } = useQuery({
     queryKey: ['nowPlaying'],
     queryFn: () => getNowPlayingMovies(),
   });
@@ -41,7 +42,7 @@ export default function Home() {
         {/* Hero Section */}
         <header className="relative min-h-[50vh] flex flex-col justify-end px-4 pb-8">
           {/* Background */}
-          {featuredMovie?.backdrop_path && (
+          {featuredMovie?.backdrop_path ? (
             <div className="absolute inset-0 overflow-hidden">
               <img
                 src={`https://image.tmdb.org/t/p/original${featuredMovie.backdrop_path}`}
@@ -51,6 +52,8 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
               <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-transparent" />
             </div>
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-background" />
           )}
 
           {/* Content */}
@@ -150,77 +153,93 @@ export default function Home() {
         </section>
 
         {/* Movie Rows */}
-        <MovieRow
-          title="Trending Now"
-          subtitle="What everyone's watching"
-          icon={<TrendingUp className="h-5 w-5" />}
-        >
-          {trending?.results.slice(0, 10).map((movie) => (
-            <MovieCard
-              key={movie.id}
-              movie={movie}
-              onAddToWatchlist={addToWatchlist}
-              onMarkWatched={markAsWatched}
-              onClick={() => navigate(`/movie/${movie.id}`)}
-              isInWatchlist={isInWatchlist(movie.id)}
-              isWatched={isWatched(movie.id)}
-            />
-          ))}
-        </MovieRow>
+        {trendingLoading ? (
+          <MovieRowSkeleton />
+        ) : (
+          <MovieRow
+            title="Trending Now"
+            subtitle="What everyone's watching"
+            icon={<TrendingUp className="h-5 w-5" />}
+          >
+            {trending?.results.slice(0, 10).map((movie) => (
+              <MovieCard
+                key={movie.id}
+                movie={movie}
+                onAddToWatchlist={addToWatchlist}
+                onMarkWatched={markAsWatched}
+                onClick={() => navigate(`/movie/${movie.id}`)}
+                isInWatchlist={isInWatchlist(movie.id)}
+                isWatched={isWatched(movie.id)}
+              />
+            ))}
+          </MovieRow>
+        )}
 
-        <MovieRow
-          title="Popular"
-          subtitle="Fan favorites"
-          icon={<Star className="h-5 w-5" />}
-        >
-          {popular?.results.slice(0, 10).map((movie) => (
-            <MovieCard
-              key={movie.id}
-              movie={movie}
-              onAddToWatchlist={addToWatchlist}
-              onMarkWatched={markAsWatched}
-              onClick={() => navigate(`/movie/${movie.id}`)}
-              isInWatchlist={isInWatchlist(movie.id)}
-              isWatched={isWatched(movie.id)}
-            />
-          ))}
-        </MovieRow>
+        {popularLoading ? (
+          <MovieRowSkeleton />
+        ) : (
+          <MovieRow
+            title="Popular"
+            subtitle="Fan favorites"
+            icon={<Star className="h-5 w-5" />}
+          >
+            {popular?.results.slice(0, 10).map((movie) => (
+              <MovieCard
+                key={movie.id}
+                movie={movie}
+                onAddToWatchlist={addToWatchlist}
+                onMarkWatched={markAsWatched}
+                onClick={() => navigate(`/movie/${movie.id}`)}
+                isInWatchlist={isInWatchlist(movie.id)}
+                isWatched={isWatched(movie.id)}
+              />
+            ))}
+          </MovieRow>
+        )}
 
-        <MovieRow
-          title="Top Rated"
-          subtitle="Critically acclaimed"
-          icon={<Star className="h-5 w-5" />}
-        >
-          {topRated?.results.slice(0, 10).map((movie) => (
-            <MovieCard
-              key={movie.id}
-              movie={movie}
-              onAddToWatchlist={addToWatchlist}
-              onMarkWatched={markAsWatched}
-              onClick={() => navigate(`/movie/${movie.id}`)}
-              isInWatchlist={isInWatchlist(movie.id)}
-              isWatched={isWatched(movie.id)}
-            />
-          ))}
-        </MovieRow>
+        {topRatedLoading ? (
+          <MovieRowSkeleton />
+        ) : (
+          <MovieRow
+            title="Top Rated"
+            subtitle="Critically acclaimed"
+            icon={<Star className="h-5 w-5" />}
+          >
+            {topRated?.results.slice(0, 10).map((movie) => (
+              <MovieCard
+                key={movie.id}
+                movie={movie}
+                onAddToWatchlist={addToWatchlist}
+                onMarkWatched={markAsWatched}
+                onClick={() => navigate(`/movie/${movie.id}`)}
+                isInWatchlist={isInWatchlist(movie.id)}
+                isWatched={isWatched(movie.id)}
+              />
+            ))}
+          </MovieRow>
+        )}
 
-        <MovieRow
-          title="In Theaters"
-          subtitle="Now showing"
-          icon={<Play className="h-5 w-5" />}
-        >
-          {nowPlaying?.results.slice(0, 10).map((movie) => (
-            <MovieCard
-              key={movie.id}
-              movie={movie}
-              onAddToWatchlist={addToWatchlist}
-              onMarkWatched={markAsWatched}
-              onClick={() => navigate(`/movie/${movie.id}`)}
-              isInWatchlist={isInWatchlist(movie.id)}
-              isWatched={isWatched(movie.id)}
-            />
-          ))}
-        </MovieRow>
+        {nowPlayingLoading ? (
+          <MovieRowSkeleton />
+        ) : (
+          <MovieRow
+            title="In Theaters"
+            subtitle="Now showing"
+            icon={<Play className="h-5 w-5" />}
+          >
+            {nowPlaying?.results.slice(0, 10).map((movie) => (
+              <MovieCard
+                key={movie.id}
+                movie={movie}
+                onAddToWatchlist={addToWatchlist}
+                onMarkWatched={markAsWatched}
+                onClick={() => navigate(`/movie/${movie.id}`)}
+                isInWatchlist={isInWatchlist(movie.id)}
+                isWatched={isWatched(movie.id)}
+              />
+            ))}
+          </MovieRow>
+        )}
       </div>
     </AppLayout>
   );
