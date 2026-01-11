@@ -72,7 +72,7 @@ export default function MoodMatch() {
   
   const navigate = useNavigate();
   const { addToWatchlist, markAsWatched, isInWatchlist, isWatched } = useWatchlist();
-  const { setCurrentMood } = useMood();
+  const { setMood } = useMood();
   const { isAuthenticated, user } = useAuth();
 
   const { data: moodMovies, isLoading } = useQuery({
@@ -127,7 +127,7 @@ export default function MoodMatch() {
 
         if (conv.mood) {
           setSelectedMood(conv.mood);
-          setCurrentMood(conv.mood);
+          setMood(conv.mood as any);
         }
       }
     } catch (error) {
@@ -182,7 +182,7 @@ export default function MoodMatch() {
 
   const handleMoodSelect = async (moodId: string) => {
     setSelectedMood(moodId);
-    setCurrentMood(moodId);
+    setMood(moodId as any);
     
     if (isAuthenticated) {
       await createOrUpdateConversation(moodId);
@@ -221,7 +221,7 @@ export default function MoodMatch() {
       
       if (data.mood) {
         setSelectedMood(data.mood);
-        setCurrentMood(data.mood);
+        setMood(data.mood as any);
       }
 
       // Save to database if authenticated
@@ -249,7 +249,7 @@ export default function MoodMatch() {
         };
         setChatHistory((prev) => [...prev, fallbackMessage]);
         setSelectedMood(detectedMood);
-        setCurrentMood(detectedMood);
+        setMood(detectedMood as any);
       }
     } finally {
       setIsAiThinking(false);
@@ -315,7 +315,7 @@ export default function MoodMatch() {
                   size="icon"
                   onClick={() => {
                     setSelectedMood(null);
-                    setCurrentMood(null);
+                    setMood('default');
                   }}
                   className="h-10 w-10"
                 >
