@@ -1,32 +1,93 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Film, Mail, Lock, User, ArrowLeft } from 'lucide-react';
+import { Film, Mail, Lock, User, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { z } from 'zod';
 
 type AuthMode = 'login' | 'signup';
 
+const emailSchema = z.string().email('Please enter a valid email');
+const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
+const usernameSchema = z.string().min(3, 'Username must be at least 3 characters');
+
 export default function Auth() {
   const navigate = useNavigate();
+  const { login, signup, isAuthenticated } = useAuth();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // This will be connected to Supabase
-    setTimeout(() => {
-      toast.info('Authentication requires Supabase connection', {
-        description: 'Connect Supabase to enable login functionality',
-      });
+    try {
+      // Validate inputs
+      const emailResult = emailSchema.safeParse(email);
+      if (!emailResult.success) {
+        toast.error(emailResult.error.errors[0].message);
+        setIsLoading(false);
+        return;
+      }
+
+      const passwordResult = passwordSchema.safeParse(password);
+      if (!passwordResult.success) {
+        toast.error(passwordResult.error.errors[0].message);
+        setIsLoading(false);
+        return;
+      }
+
+      if (mode === 'signup') {
+        const usernameResult = usernameSchema.safeParse(username);
+        if (!usernameResult.success) {
+          toast.error(usernameResult.error.errors[0].message);
+          setIsLoading(false);
+          return;
+        }
+
+        const { error } = await signup(email, password, username);
+        if (error) {
+          if (error.message.includes('already registered')) {
+            toast.error('This email is already registered. Please sign in instead.');
+          } else {
+            toast.error(error.message);
+          }
+        } else {
+          toast.success('Account created successfully!');
+          navigate('/');
+        }
+      } else {
+        const { error } = await login(email, password);
+        if (error) {
+          if (error.message.includes('Invalid login')) {
+            toast.error('Invalid email or password. Please try again.');
+          } else {
+            toast.error(error.message);
+          }
+        } else {
+          toast.success('Welcome back!');
+          navigate('/');
+        }
+      }
+    } catch (error) {
+      toast.error('An unexpected error occurred. Please try again.');
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -108,14 +169,21 @@ export default function Auth() {
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-12"
+                  className="pl-12 pr-12"
                   required
                   minLength={6}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
             </div>
 

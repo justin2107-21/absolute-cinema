@@ -10,24 +10,24 @@ interface LogoProps {
 
 export function Logo({ size = 'md', animated = false, showText = true, className }: LogoProps) {
   const sizeClasses = {
-    sm: 'h-8 w-8',
-    md: 'h-12 w-12',
-    lg: 'h-16 w-16',
-    xl: 'h-24 w-24',
+    sm: 'h-6 w-6',
+    md: 'h-8 w-8',
+    lg: 'h-12 w-12',
+    xl: 'h-16 w-16',
   };
 
   const textSizes = {
-    sm: 'text-lg',
-    md: 'text-2xl',
-    lg: 'text-3xl',
-    xl: 'text-4xl',
+    sm: 'text-sm',
+    md: 'text-lg',
+    lg: 'text-2xl',
+    xl: 'text-3xl',
   };
 
   const iconSizes = {
-    sm: 16,
-    md: 24,
-    lg: 32,
-    xl: 48,
+    sm: 12,
+    md: 16,
+    lg: 24,
+    xl: 32,
   };
 
   const iconSize = iconSizes[size];
