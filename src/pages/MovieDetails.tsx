@@ -168,19 +168,26 @@ export default function MovieDetails() {
         <section className="px-4 -mt-2 relative z-20">
           <div className="flex gap-3">
             <Button
-              className="flex-1"
-              variant={inWatchlist ? "secondary" : "default"}
+              className="flex-1 gap-2"
+              onClick={() => navigate(`/watch/movie/${movie.id}`)}
+            >
+              <Play className="h-4 w-4" />
+              Watch Now
+            </Button>
+            <Button
+              variant={inWatchlist ? "secondary" : "outline"}
+              className="gap-2"
               onClick={() => addToWatchlist(movie)}
             >
               {inWatchlist ? (
                 <>
                   <Check className="h-4 w-4" />
-                  In Watchlist
+                  In List
                 </>
               ) : (
                 <>
                   <Plus className="h-4 w-4" />
-                  Add to Watchlist
+                  Watchlist
                 </>
               )}
             </Button>

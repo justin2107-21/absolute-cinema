@@ -23,6 +23,7 @@ import Groups from "./pages/Groups";
 import Friends from "./pages/Friends";
 import Auth from "./pages/Auth";
 import WatchParty from "./pages/WatchParty";
+import Watch from "./pages/Watch";
 import NotFound from "./pages/NotFound";
 
 const App = () => {
@@ -63,6 +64,7 @@ const App = () => {
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/movie/:id" element={<MovieDetails />} />
                     <Route path="/tv/:id" element={<MovieDetails />} />
+                    <Route path="/watch/:type/:id" element={<Watch />} />
                     <Route path="/groups" element={<Groups />} />
                     <Route path="/friends" element={<Friends />} />
                     <Route path="/auth" element={<Auth />} />

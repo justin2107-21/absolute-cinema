@@ -22,6 +22,10 @@ export interface MovieDetails extends Movie {
   status: string;
   budget: number;
   revenue: number;
+  name?: string; // For TV shows
+  number_of_seasons?: number; // For TV shows
+  number_of_episodes?: number; // For TV shows
+  first_air_date?: string; // For TV shows
   videos?: {
     results: {
       id: string;

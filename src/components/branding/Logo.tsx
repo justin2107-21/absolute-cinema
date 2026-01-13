@@ -7,9 +7,10 @@ interface LogoProps {
   animated?: boolean;
   showText?: boolean;
   className?: string;
+  onClick?: () => void;
 }
 
-export function Logo({ size = 'md', animated = false, showText = true, className }: LogoProps) {
+export function Logo({ size = 'md', animated = false, showText = true, className, onClick }: LogoProps) {
   const sizeClasses = {
     sm: 'h-10 w-10',
     md: 'h-12 w-12',
@@ -25,7 +26,7 @@ export function Logo({ size = 'md', animated = false, showText = true, className
   };
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
+    <div className={cn('flex items-center gap-2 cursor-pointer', className)} onClick={onClick}>
       <motion.div
         className={cn('relative flex items-center justify-center', sizeClasses[size])}
         animate={animated ? {
