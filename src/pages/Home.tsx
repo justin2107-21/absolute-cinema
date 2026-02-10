@@ -7,7 +7,7 @@ import { MovieCard } from '@/components/movies/MovieCard';
 import { MovieRow } from '@/components/movies/MovieRow';
 import { MovieRowSkeleton } from '@/components/movies/MovieSkeleton';
 import { HeroSlider } from '@/components/home/HeroSlider';
-import { Logo } from '@/components/branding/Logo';
+
 import { getDiversifiedHomeContent } from '@/lib/tmdb';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { useNavigate } from 'react-router-dom';
@@ -53,11 +53,6 @@ export default function Home() {
   return (
     <AppLayout>
       <div className="space-y-4">
-        {/* Slim Logo Header */}
-        <header className="px-4 py-2 flex items-center">
-          <Logo size="sm" />
-        </header>
-
         {/* Auto-sliding Hero */}
         {homeContent?.trending && homeContent.trending.length > 0 ? (
           <HeroSlider 

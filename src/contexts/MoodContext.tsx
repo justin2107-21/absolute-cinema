@@ -140,7 +140,11 @@ interface MoodContextType {
 const MoodContext = createContext<MoodContextType | undefined>(undefined);
 
 export function MoodProvider({ children }: { children: ReactNode }) {
-  const [currentMood, setCurrentMood] = useState<MoodType>('default');
+  const [currentMood, setCurrentMood] = useState<MoodType>(() => {
+    const saved = localStorage.getItem('absolutecinema_mood');
+    if (saved && saved in moodThemes) return saved as MoodType;
+    return 'default';
+  });
   const theme = moodThemes[currentMood];
 
   useEffect(() => {
