@@ -150,20 +150,6 @@ export function HeroSlider({
             />
           ))}
         </div>
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-          {displayMovies.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToSlide(index)}
-              className={cn(
-                "h-2 rounded-full transition-all duration-300",
-                index === currentIndex 
-                  ? "w-8 bg-primary" 
-                  : "w-2 bg-white/30 hover:bg-white/50"
-              )}
-            />
-          ))}
-        </div>
       </div>
 
       {/* Progress bar for auto-play */}

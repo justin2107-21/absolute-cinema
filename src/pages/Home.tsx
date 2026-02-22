@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Star, Play, Calendar, Film, Tv, LayoutGrid, X } from 'lucide-react';
+import { TrendingUp, Star, Play, Calendar, Film, Tv, LayoutGrid, X, Sparkles, Gem, Shuffle } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MovieCard } from '@/components/movies/MovieCard';
 import { MovieRow } from '@/components/movies/MovieRow';
@@ -9,6 +9,7 @@ import { MovieRowSkeleton } from '@/components/movies/MovieSkeleton';
 import { HeroSlider } from '@/components/home/HeroSlider';
 
 import { getDiversifiedHomeContent } from '@/lib/tmdb';
+import { getPersonalizedRecommendations, getDiverseDiscovery } from '@/lib/recommendations';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -35,14 +36,29 @@ const GENRES = [
 
 export default function Home() {
   const navigate = useNavigate();
-  const { addToWatchlist, markAsWatched, isInWatchlist, isWatched } = useWatchlist();
+  const { addToWatchlist, markAsWatched, isInWatchlist, isWatched, watched, watchlist } = useWatchlist();
   const [showCategories, setShowCategories] = useState(false);
 
-  // Use diversified content to avoid duplicate movies across sections
   const { data: homeContent, isLoading } = useQuery({
     queryKey: ['home-diversified'],
     queryFn: getDiversifiedHomeContent,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Personalized recommendations based on watch history
+  const { data: personalRecs } = useQuery({
+    queryKey: ['personalized-recs', watched.length],
+    queryFn: () => getPersonalizedRecommendations(watched, watchlist),
+    enabled: watched.length >= 3,
+    staleTime: 1000 * 60 * 30,
+  });
+
+  // Diverse discovery for new users
+  const { data: discovery } = useQuery({
+    queryKey: ['diverse-discovery'],
+    queryFn: getDiverseDiscovery,
+    enabled: watched.length < 3,
+    staleTime: 1000 * 60 * 10,
   });
 
   const handleCategorySelect = (genreId: number, genreName: string) => {
@@ -166,6 +182,44 @@ export default function Home() {
                   onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
               ))}
             </MovieRow>
+
+            {/* Personalized recommendations for returning users */}
+            {personalRecs?.forYou && personalRecs.forYou.length > 0 && (
+              <MovieRow title="For You" subtitle="Based on your watch history" icon={<Sparkles className="h-5 w-5" />}>
+                {personalRecs.forYou.map((movie) => (
+                  <MovieCard key={movie.id} movie={movie} onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched}
+                    onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
+                ))}
+              </MovieRow>
+            )}
+
+            {personalRecs?.genreMix && personalRecs.genreMix.length > 0 && (
+              <MovieRow title="Genre Mix" subtitle="From your favorite genres" icon={<Shuffle className="h-5 w-5" />}>
+                {personalRecs.genreMix.map((movie) => (
+                  <MovieCard key={movie.id} movie={movie} onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched}
+                    onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
+                ))}
+              </MovieRow>
+            )}
+
+            {personalRecs?.hiddenGems && personalRecs.hiddenGems.length > 0 && (
+              <MovieRow title="Hidden Gems" subtitle="Highly rated discoveries" icon={<Gem className="h-5 w-5" />}>
+                {personalRecs.hiddenGems.map((movie) => (
+                  <MovieCard key={movie.id} movie={movie} onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched}
+                    onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
+                ))}
+              </MovieRow>
+            )}
+
+            {/* Discovery for new users */}
+            {discovery && discovery.length > 0 && (
+              <MovieRow title="Discover" subtitle="Explore something new" icon={<Shuffle className="h-5 w-5" />}>
+                {discovery.map((movie) => (
+                  <MovieCard key={movie.id} movie={movie} onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched}
+                    onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
+                ))}
+              </MovieRow>
+            )}
 
             <MovieRow title="Popular This Week" subtitle="Fan favorites" icon={<Star className="h-5 w-5" />}>
               {homeContent?.popular.map((movie) => (
