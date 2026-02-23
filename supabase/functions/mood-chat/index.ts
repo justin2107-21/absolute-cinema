@@ -1,21 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const ALLOWED_ORIGINS = [
-  "https://id-preview--a0766551-57f9-445e-963f-81551e521bcd.lovable.app",
-  "http://localhost:5173",
-  "http://localhost:8080",
-];
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
 
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("origin") || "";
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  };
-}
-
-const MOOD_SYSTEM_PROMPT = `You are MoodMatch AI, a compassionate and emotionally intelligent movie recommendation assistant for Absolute Cinema. 
+const MOOD_SYSTEM_PROMPT = `You are MoodMatch AI, a compassionate and emotionally intelligent movie recommendation assistant for Absolute Cinema.
 
 PERSONALITY:
 - Warm, understanding, and genuinely caring
@@ -28,35 +18,9 @@ RESPONSE STRUCTURE:
 2. Show genuine empathy and understanding
 3. End with a hopeful transition to movie recommendations
 
-MOOD DETECTION:
-Analyze the user's message for these moods:
-- happy, joyful → warm, uplifting tone
-- sad, down, upset → gentle, comforting tone
-- stressed, anxious, overwhelmed → calming, soothing tone
-- romantic, loving → warm, dreamy tone
-- excited, energetic → enthusiastic tone
-- relaxed, calm → peaceful tone
-- lonely → warm, inclusive tone
-- burned_out → understanding, gentle tone
-- nostalgic → reflective, warm tone
-- heartbroken → deeply compassionate tone
-- motivated → encouraging tone
-- bored → engaging, curious tone
-- hopeful → optimistic tone
-- curious → inquisitive, excited tone
-
-EXAMPLES:
-User: "I'm feeling really stressed from work"
-Response: "I completely understand – work stress can feel so heavy, and it's exhausting carrying that weight. It makes total sense that you'd want something to help you unwind and escape for a bit. Let me find some movies that will help you breathe and relax."
-
-User: "I want comedy Filipino movies"
-Response: "Oh, great choice! Filipino comedies have such a unique warmth and humor that's just infectious. Whether you're craving some classic laughs or discovering new favorites, I've got some gems lined up for you."
-
 Always respond in 2-3 sentences maximum. Be genuine, not generic.`;
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
-
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -64,7 +28,6 @@ serve(async (req) => {
   try {
     const { message, conversationHistory } = await req.json();
 
-    // Input validation
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return new Response(JSON.stringify({ error: "Message is required" }), {
         status: 400,
@@ -79,8 +42,6 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
@@ -88,7 +49,7 @@ serve(async (req) => {
     const messages = [
       { role: "system", content: MOOD_SYSTEM_PROMPT },
       ...(conversationHistory || []),
-      { role: "user", content: message }
+      { role: "user", content: message },
     ];
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -104,38 +65,62 @@ serve(async (req) => {
           {
             type: "function",
             function: {
-              name: "detect_mood_and_preferences",
-              description: "Detect user's mood and movie preferences from their message",
+              name: "analyze_mood_and_preferences",
+              description: "Perform detailed emotional analysis and extract movie/TV preferences from the user's message",
               parameters: {
                 type: "object",
                 properties: {
-                  mood: {
+                  primary_emotion: {
                     type: "string",
                     enum: ["happy", "sad", "stressed", "romantic", "excited", "relaxed", "lonely", "anxious", "burned_out", "overwhelmed", "nostalgic", "heartbroken", "motivated", "bored", "hopeful", "curious"],
-                    description: "The detected mood of the user"
+                    description: "The primary detected emotion",
+                  },
+                  secondary_emotion: {
+                    type: "string",
+                    enum: ["happy", "sad", "stressed", "romantic", "excited", "relaxed", "lonely", "anxious", "burned_out", "overwhelmed", "nostalgic", "heartbroken", "motivated", "bored", "hopeful", "curious", "none"],
+                    description: "A secondary emotion if present, or 'none'",
+                  },
+                  intent: {
+                    type: "string",
+                    description: "What the user wants (e.g., 'escape stress', 'feel uplifted', 'cry it out', 'get thrills')",
                   },
                   genres: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Preferred movie genres mentioned or inferred"
+                    description: "Preferred genres mentioned or inferred (e.g., 'comedy', 'drama', 'action', 'romance', 'thriller', 'horror', 'sci-fi', 'animation', 'documentary', 'fantasy', 'mystery')",
                   },
                   language: {
                     type: "string",
-                    description: "Preferred language if mentioned (e.g., 'filipino', 'korean', 'japanese')"
+                    description: "Preferred language/country if mentioned (e.g., 'filipino', 'korean', 'japanese', 'hindi', 'spanish', 'french'). Empty string if not specified.",
+                  },
+                  tone: {
+                    type: "string",
+                    enum: ["light", "dark", "intense", "comforting", "inspiring", "bittersweet", "whimsical", "gritty"],
+                    description: "The tone preference for recommendations",
+                  },
+                  popularity_preference: {
+                    type: "string",
+                    enum: ["trending", "top_rated", "underrated", "most_watched", "any"],
+                    description: "Whether user prefers trending, top-rated, underrated, or most watched content",
+                  },
+                  content_type: {
+                    type: "string",
+                    enum: ["movie", "tv", "both"],
+                    description: "Whether the user wants movies, TV series, or both",
                   },
                   keywords: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Key themes or preferences mentioned"
-                  }
+                    description: "Key themes or specific preferences (e.g., 'time travel', 'coming of age', 'heist')",
+                  },
                 },
-                required: ["mood"],
-                additionalProperties: false
-              }
-            }
-          }
+                required: ["primary_emotion", "secondary_emotion", "intent", "genres", "tone", "popularity_preference", "content_type"],
+                additionalProperties: false,
+              },
+            },
+          },
         ],
-        tool_choice: "auto"
+        tool_choice: "auto",
       }),
     });
 
@@ -159,14 +144,13 @@ serve(async (req) => {
 
     const data = await response.json();
     const choice = data.choices[0];
-    
+
     let aiMessage = choice.message.content || "";
     let moodData = null;
 
-    // Check for tool calls
     if (choice.message.tool_calls) {
       for (const toolCall of choice.message.tool_calls) {
-        if (toolCall.function.name === "detect_mood_and_preferences") {
+        if (toolCall.function.name === "analyze_mood_and_preferences") {
           try {
             moodData = JSON.parse(toolCall.function.arguments);
           } catch (e) {
@@ -176,7 +160,7 @@ serve(async (req) => {
       }
     }
 
-    // If we got tool calls but no content, make another call for the empathetic response
+    // If we got tool calls but no content, make a follow-up call for the empathetic response
     if (!aiMessage && moodData) {
       const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -189,26 +173,34 @@ serve(async (req) => {
           messages: [
             { role: "system", content: MOOD_SYSTEM_PROMPT },
             { role: "user", content: message },
-            { role: "assistant", content: `I detected the user is feeling ${moodData.mood}. Generate an empathetic response.` }
-          ]
+          ],
         }),
       });
 
       if (followUpResponse.ok) {
         const followUpData = await followUpResponse.json();
-        aiMessage = followUpData.choices[0]?.message?.content || getDefaultEmpathyResponse(moodData.mood);
+        aiMessage = followUpData.choices[0]?.message?.content || getDefaultResponse(moodData.primary_emotion);
       }
     }
 
-    // Fallback if still no message
     if (!aiMessage) {
-      aiMessage = getDefaultEmpathyResponse(moodData?.mood || "happy");
+      aiMessage = getDefaultResponse(moodData?.primary_emotion || inferMood(message));
     }
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       message: aiMessage,
-      mood: moodData?.mood || inferMoodFromMessage(message),
-      preferences: moodData
+      mood: moodData?.primary_emotion || inferMood(message),
+      preferences: moodData || {
+        primary_emotion: inferMood(message),
+        secondary_emotion: "none",
+        intent: "find entertainment",
+        genres: [],
+        language: "",
+        tone: "comforting",
+        popularity_preference: "any",
+        content_type: "both",
+        keywords: [],
+      },
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -221,42 +213,42 @@ serve(async (req) => {
   }
 });
 
-function getDefaultEmpathyResponse(mood: string): string {
-  const responses: Record<string, string> = {
-    happy: "That's wonderful to hear! Your positive energy is contagious, and I'd love to keep that vibe going with some feel-good movies.",
-    sad: "I hear you, and it's okay to feel this way. Sometimes we need movies that understand us, or ones that gently lift our spirits.",
-    stressed: "I completely understand – stress can be so overwhelming. Let me find something that'll help you decompress and escape for a while.",
-    romantic: "Ah, love is in the air! Whether you want swooning romance or heartwarming stories, I've got you covered.",
-    excited: "I love your energy! Let's channel that excitement into some thrilling, edge-of-your-seat entertainment.",
-    relaxed: "Sounds like the perfect mood for some cozy viewing. Let me find something that matches your peaceful vibe.",
-    lonely: "I'm here with you, and movies have a beautiful way of making us feel less alone. Let's find some stories with warmth and connection.",
-    anxious: "Take a deep breath – I understand how anxiety can grip you. Let me suggest some calming, gentle films to help ease your mind.",
-    burned_out: "Burnout is real and exhausting. You deserve something comforting that doesn't demand too much from you right now.",
-    overwhelmed: "That's a lot to carry. Let me find something light and easy that'll give your mind a much-needed break.",
-    nostalgic: "There's something beautiful about looking back. Let me find movies that capture that warm, nostalgic feeling.",
-    heartbroken: "I'm so sorry you're going through this. Whether you need a good cry or something to lift your spirits, I'm here for you.",
-    motivated: "I love that drive! Let me find some inspiring stories that'll fuel your momentum.",
-    bored: "Let's shake things up! I'll find something unexpected and engaging to spark your interest.",
-    hopeful: "That optimism is beautiful. Let me match it with some uplifting stories that celebrate hope.",
-    curious: "I love your sense of wonder! Let me find some thought-provoking films that'll satisfy that curiosity."
+function getDefaultResponse(mood: string): string {
+  const r: Record<string, string> = {
+    happy: "That's wonderful to hear! Your positive energy is contagious. Let me find some feel-good movies to keep that vibe going.",
+    sad: "I hear you, and it's okay to feel this way. Let me find movies that understand, or ones that gently lift your spirits.",
+    stressed: "I completely understand – stress can feel so heavy. Let me find something to help you unwind and escape.",
+    romantic: "Ah, love is in the air! Let me find some swooning romance and heartwarming stories for you.",
+    excited: "I love your energy! Let's channel that excitement into some thrilling entertainment.",
+    relaxed: "Perfect mood for some cozy viewing. Let me match your peaceful vibe.",
+    lonely: "I'm here with you. Movies have a beautiful way of making us feel less alone.",
+    anxious: "Take a deep breath – I understand. Let me suggest some calming films to ease your mind.",
+    burned_out: "Burnout is real and exhausting. You deserve something comforting right now.",
+    overwhelmed: "That's a lot to carry. Let me find something light for a much-needed break.",
+    nostalgic: "There's something beautiful about looking back. Let me capture that warm feeling.",
+    heartbroken: "I'm so sorry you're going through this. I'm here for you.",
+    motivated: "I love that drive! Let me find inspiring stories to fuel your momentum.",
+    bored: "Let's shake things up! I'll find something unexpected and engaging.",
+    hopeful: "That optimism is beautiful. Let me match it with uplifting stories.",
+    curious: "I love your sense of wonder! Let me find something thought-provoking.",
   };
-  return responses[mood] || responses.happy;
+  return r[mood] || r.happy;
 }
 
-function inferMoodFromMessage(message: string): string {
-  const lower = message.toLowerCase();
-  if (lower.match(/sad|down|upset|cry|depressed/)) return "sad";
-  if (lower.match(/stress|anxious|worried|overwhelm/)) return "stressed";
-  if (lower.match(/love|romantic|date|relationship/)) return "romantic";
-  if (lower.match(/excit|thrill|adventure|action/)) return "excited";
-  if (lower.match(/relax|calm|peace|chill/)) return "relaxed";
-  if (lower.match(/lonely|alone|isolated/)) return "lonely";
-  if (lower.match(/burned|exhausted|tired/)) return "burned_out";
-  if (lower.match(/nostalg|remember|childhood|old/)) return "nostalgic";
-  if (lower.match(/heartbr|breakup|ex\b/)) return "heartbroken";
-  if (lower.match(/motiv|inspir|productive/)) return "motivated";
-  if (lower.match(/bored|nothing to do/)) return "bored";
-  if (lower.match(/hope|optimis|positive/)) return "hopeful";
-  if (lower.match(/curious|wonder|learn/)) return "curious";
+function inferMood(message: string): string {
+  const l = message.toLowerCase();
+  if (l.match(/sad|down|upset|cry|depressed/)) return "sad";
+  if (l.match(/stress|anxious|worried|overwhelm/)) return "stressed";
+  if (l.match(/love|romantic|date|relationship/)) return "romantic";
+  if (l.match(/excit|thrill|adventure|action/)) return "excited";
+  if (l.match(/relax|calm|peace|chill/)) return "relaxed";
+  if (l.match(/lonely|alone|isolated/)) return "lonely";
+  if (l.match(/burned|exhausted|tired/)) return "burned_out";
+  if (l.match(/nostalg|remember|childhood/)) return "nostalgic";
+  if (l.match(/heartbr|breakup/)) return "heartbroken";
+  if (l.match(/motiv|inspir/)) return "motivated";
+  if (l.match(/bored/)) return "bored";
+  if (l.match(/hope|optimis/)) return "hopeful";
+  if (l.match(/curious|wonder/)) return "curious";
   return "happy";
 }

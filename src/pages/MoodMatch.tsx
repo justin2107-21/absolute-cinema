@@ -2,28 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Smile, 
-  Frown, 
-  Zap, 
-  Heart, 
-  PartyPopper, 
-  Coffee,
-  Sparkles,
-  Send,
-  ArrowLeft,
-  Brain,
-  Moon,
-  CloudRain,
-  Flame,
-  Lightbulb,
-  Meh,
-  Search,
-  Compass,
-  HeartCrack,
-  Battery,
-  Film,
-  Tv,
-  BookOpen
+  Smile, Frown, Zap, Heart, PartyPopper, Coffee, Sparkles, Send, ArrowLeft, Brain,
+  Moon, CloudRain, Flame, Lightbulb, Meh, Search, Compass, HeartCrack, Battery,
+  Film, Tv, BookOpen, TrendingUp, Star, Eye
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MovieCard } from '@/components/movies/MovieCard';
@@ -33,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getMoviesByMood } from '@/lib/tmdb';
 import { getAnimeByMood, getMangaByMood, type AniListMedia } from '@/lib/anilist';
+import { getMoodRecommendations, type MoodPreferences, type MoodRecommendations } from '@/lib/moodRecommendations';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { useNavigate } from 'react-router-dom';
 import { useMood } from '@/contexts/MoodContext';
@@ -41,7 +23,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-// Extended moods list
 const moods = [
   { id: 'happy', label: 'Happy', icon: Smile, color: 'text-mood-happy' },
   { id: 'sad', label: 'Sad', icon: Frown, color: 'text-mood-sad' },
@@ -66,6 +47,7 @@ interface ChatMessage {
   content: string;
   showRecommendations?: boolean;
   mood?: string;
+  preferences?: MoodPreferences;
 }
 
 export default function MoodMatch() {
@@ -75,49 +57,47 @@ export default function MoodMatch() {
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'movies' | 'anime' | 'manga'>('movies');
+  const [currentPreferences, setCurrentPreferences] = useState<MoodPreferences | null>(null);
+  const [smartRecommendations, setSmartRecommendations] = useState<MoodRecommendations | null>(null);
+  const [isLoadingSmartRecs, setIsLoadingSmartRecs] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  
+
   const navigate = useNavigate();
   const { addToWatchlist, markAsWatched, isInWatchlist, isWatched } = useWatchlist();
   const { setMood } = useMood();
   const { isAuthenticated, user } = useAuth();
 
-  // Movie query
+  // Fallback movie query for mood button selection
   const { data: moodMovies, isLoading: isLoadingMovies } = useQuery({
     queryKey: ['moodMovies', selectedMood],
     queryFn: () => getMoviesByMood(selectedMood!),
-    enabled: !!selectedMood && activeTab === 'movies',
+    enabled: !!selectedMood && !currentPreferences && activeTab === 'movies',
   });
 
-  // Anime query
   const { data: moodAnime, isLoading: isLoadingAnime } = useQuery({
     queryKey: ['moodAnime', selectedMood],
     queryFn: () => getAnimeByMood(selectedMood!),
     enabled: !!selectedMood && activeTab === 'anime',
   });
 
-  // Manga query
   const { data: moodManga, isLoading: isLoadingManga } = useQuery({
     queryKey: ['moodManga', selectedMood],
     queryFn: () => getMangaByMood(selectedMood!),
     enabled: !!selectedMood && activeTab === 'manga',
   });
 
-  // Load existing conversation on mount
   useEffect(() => {
     if (isAuthenticated && user) {
       loadConversation();
     }
   }, [isAuthenticated, user]);
 
-  // Scroll to bottom when chat updates
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
 
   const loadConversation = async () => {
     if (!user) return;
-    
     try {
       const { data: conversations } = await supabase
         .from('chat_conversations')
@@ -129,7 +109,7 @@ export default function MoodMatch() {
       if (conversations && conversations.length > 0) {
         const conv = conversations[0];
         setConversationId(conv.id);
-        
+
         const { data: messages } = await supabase
           .from('chat_messages')
           .select('*')
@@ -137,11 +117,12 @@ export default function MoodMatch() {
           .order('created_at', { ascending: true });
 
         if (messages) {
-          setChatHistory(messages.map(m => ({
+          setChatHistory(messages.map((m) => ({
             id: m.id,
             role: m.role as 'user' | 'assistant',
             content: m.content,
             showRecommendations: m.show_recommendations || false,
+            preferences: m.recommendations as unknown as MoodPreferences | undefined,
           })));
         }
 
@@ -157,13 +138,13 @@ export default function MoodMatch() {
 
   const saveMessage = async (message: ChatMessage, convId: string) => {
     if (!user) return;
-    
     try {
       await supabase.from('chat_messages').insert({
         conversation_id: convId,
         role: message.role,
         content: message.content,
         show_recommendations: message.showRecommendations || false,
+        recommendations: message.preferences ? (message.preferences as any) : null,
       });
     } catch (error) {
       console.error('Error saving message:', error);
@@ -172,7 +153,6 @@ export default function MoodMatch() {
 
   const createOrUpdateConversation = async (mood?: string): Promise<string> => {
     if (!user) return '';
-    
     try {
       if (conversationId) {
         await supabase
@@ -186,7 +166,6 @@ export default function MoodMatch() {
           .insert({ user_id: user.id, mood })
           .select()
           .single();
-        
         if (data) {
           setConversationId(data.id);
           return data.id;
@@ -201,10 +180,32 @@ export default function MoodMatch() {
   const handleMoodSelect = async (moodId: string) => {
     setSelectedMood(moodId);
     setMood(moodId as any);
-    
+    setCurrentPreferences(null);
+    setSmartRecommendations(null);
     if (isAuthenticated) {
       await createOrUpdateConversation(moodId);
     }
+  };
+
+  const handleShowRecommendations = async (prefs: MoodPreferences) => {
+    setSelectedMood(prefs.primary_emotion);
+    setMood(prefs.primary_emotion as any);
+    setCurrentPreferences(prefs);
+    setIsLoadingSmartRecs(true);
+
+    try {
+      const recs = await getMoodRecommendations(prefs);
+      setSmartRecommendations(recs);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+      toast.error('Failed to load recommendations. Showing fallback results.');
+    } finally {
+      setIsLoadingSmartRecs(false);
+    }
+
+    setTimeout(() => {
+      document.getElementById('recommendations')?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   };
 
   const handleChatSubmit = async () => {
@@ -217,25 +218,26 @@ export default function MoodMatch() {
 
     try {
       const { data, error } = await supabase.functions.invoke('mood-chat', {
-        body: { 
+        body: {
           message: chatInput,
-          conversationHistory: chatHistory.map(m => ({ role: m.role, content: m.content }))
-        }
+          conversationHistory: chatHistory.map((m) => ({ role: m.role, content: m.content })),
+        },
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
+
+      const prefs: MoodPreferences = data.preferences;
 
       const aiMessage: ChatMessage = {
         role: 'assistant',
         content: data.message,
         showRecommendations: true,
         mood: data.mood,
+        preferences: prefs,
       };
 
       setChatHistory((prev) => [...prev, aiMessage]);
-      
+
       if (data.mood) {
         setSelectedMood(data.mood);
         setMood(data.mood as any);
@@ -248,18 +250,29 @@ export default function MoodMatch() {
       }
     } catch (error: any) {
       console.error('AI error:', error);
-      
       if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
         toast.error('Too many requests. Please wait a moment and try again.');
       } else if (error.message?.includes('402')) {
         toast.error('AI service temporarily unavailable.');
       } else {
         const detectedMood = detectMoodFromText(chatInput);
+        const fallbackPrefs: MoodPreferences = {
+          primary_emotion: detectedMood,
+          secondary_emotion: 'none',
+          intent: 'find entertainment',
+          genres: [],
+          language: '',
+          tone: 'comforting',
+          popularity_preference: 'any',
+          content_type: 'both',
+          keywords: [],
+        };
         const fallbackMessage: ChatMessage = {
           role: 'assistant',
           content: getEmpathyResponse(detectedMood),
           showRecommendations: true,
           mood: detectedMood,
+          preferences: fallbackPrefs,
         };
         setChatHistory((prev) => [...prev, fallbackMessage]);
         setSelectedMood(detectedMood);
@@ -285,7 +298,6 @@ export default function MoodMatch() {
     if (lower.match(/bored/)) return 'bored';
     if (lower.match(/hope|optimis/)) return 'hopeful';
     if (lower.match(/curious|wonder/)) return 'curious';
-    if (lower.match(/anime|manga|weeb/)) return 'excited';
     return 'happy';
   };
 
@@ -310,16 +322,19 @@ export default function MoodMatch() {
     return responses[mood] || responses.happy;
   };
 
-  const handleShowRecommendations = () => {
-    document.getElementById('recommendations')?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   const handleAnimeClick = (anime: AniListMedia) => {
     navigate(`/watch/${anime.type.toLowerCase()}/${anime.id}`);
   };
 
   const currentMoodConfig = moods.find((m) => m.id === selectedMood);
-  const isLoading = activeTab === 'movies' ? isLoadingMovies : activeTab === 'anime' ? isLoadingAnime : isLoadingManga;
+  const hasSmartRecs = !!smartRecommendations;
+  const isLoading = activeTab === 'movies'
+    ? (hasSmartRecs ? isLoadingSmartRecs : isLoadingMovies)
+    : activeTab === 'anime' ? isLoadingAnime : isLoadingManga;
+
+  const movieResults = hasSmartRecs
+    ? smartRecommendations!.popular
+    : moodMovies?.results.slice(0, 12) || [];
 
   return (
     <AppLayout hideHeader>
@@ -335,6 +350,8 @@ export default function MoodMatch() {
                   onClick={() => {
                     setSelectedMood(null);
                     setMood('default');
+                    setCurrentPreferences(null);
+                    setSmartRecommendations(null);
                   }}
                   className="h-10 w-10"
                 >
@@ -351,7 +368,7 @@ export default function MoodMatch() {
                   MoodMatch AI
                 </motion.h1>
                 <p className="text-sm text-muted-foreground">
-                  Find movies, anime & manga that match your mood
+                  AI-powered emotional analysis & smart recommendations
                 </p>
               </div>
             </div>
@@ -373,9 +390,9 @@ export default function MoodMatch() {
                     <p className="text-sm text-muted-foreground">
                       Describe your mood and I'll find the perfect content for you
                     </p>
-                    
+
                     {chatHistory.length > 0 && (
-                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                      <div className="space-y-3 max-h-80 overflow-y-auto">
                         {chatHistory.map((chat, index) => (
                           <motion.div
                             key={index}
@@ -389,11 +406,34 @@ export default function MoodMatch() {
                             )}
                           >
                             {chat.content}
-                            {chat.role === 'assistant' && chat.showRecommendations && (
+
+                            {/* Detected preferences badge */}
+                            {chat.role === 'assistant' && chat.preferences && (
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                                  {chat.preferences.primary_emotion}
+                                </span>
+                                {chat.preferences.language && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">
+                                    {chat.preferences.language}
+                                  </span>
+                                )}
+                                {chat.preferences.genres?.slice(0, 3).map((g) => (
+                                  <span key={g} className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                    {g}
+                                  </span>
+                                ))}
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                  {chat.preferences.tone}
+                                </span>
+                              </div>
+                            )}
+
+                            {chat.role === 'assistant' && chat.showRecommendations && chat.preferences && (
                               <Button
                                 size="sm"
                                 className="mt-3 w-full"
-                                onClick={handleShowRecommendations}
+                                onClick={() => handleShowRecommendations(chat.preferences!)}
                               >
                                 <Search className="h-4 w-4 mr-2" />
                                 Show Recommendations
@@ -409,7 +449,7 @@ export default function MoodMatch() {
                                 <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
                                 <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
                               </div>
-                              <span className="text-sm text-muted-foreground">Thinking...</span>
+                              <span className="text-sm text-muted-foreground">Analyzing your mood...</span>
                             </div>
                           </div>
                         )}
@@ -419,7 +459,7 @@ export default function MoodMatch() {
 
                     <div className="flex gap-2">
                       <Input
-                        placeholder="e.g., I feel stressed and want some anime..."
+                        placeholder="e.g., I want comedy Filipino movies..."
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && !isAiThinking && handleChatSubmit()}
@@ -444,20 +484,14 @@ export default function MoodMatch() {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => handleMoodSelect(mood.id)}
-                          className={cn(
-                            "glass-card flex flex-col items-center gap-2 p-4 transition-all",
-                            mood.color
-                          )}
+                          className={cn("glass-card flex flex-col items-center gap-2 p-4 transition-all", mood.color)}
                         >
                           <Icon className="h-8 w-8" />
-                          <span className="text-sm font-medium text-foreground">
-                            {mood.label}
-                          </span>
+                          <span className="text-sm font-medium text-foreground">{mood.label}</span>
                         </motion.button>
                       );
                     })}
                   </div>
-                  
                   <details className="group">
                     <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
                       Show more moods...
@@ -471,15 +505,10 @@ export default function MoodMatch() {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => handleMoodSelect(mood.id)}
-                            className={cn(
-                              "glass-card flex flex-col items-center gap-2 p-4 transition-all",
-                              mood.color
-                            )}
+                            className={cn("glass-card flex flex-col items-center gap-2 p-4 transition-all", mood.color)}
                           >
                             <Icon className="h-6 w-6" />
-                            <span className="text-xs font-medium text-foreground">
-                              {mood.label}
-                            </span>
+                            <span className="text-xs font-medium text-foreground">{mood.label}</span>
                           </motion.button>
                         );
                       })}
@@ -507,7 +536,9 @@ export default function MoodMatch() {
                             Content for when you're {currentMoodConfig.label.toLowerCase()}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            Curated picks to match your mood
+                            {currentPreferences
+                              ? `${currentPreferences.tone} • ${currentPreferences.content_type} • ${currentPreferences.popularity_preference}`
+                              : 'Curated picks to match your mood'}
                           </p>
                         </div>
                       </>
@@ -533,29 +564,108 @@ export default function MoodMatch() {
                       </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="movies" className="mt-4">
-                      {isLoadingMovies ? (
+                    <TabsContent value="movies" className="mt-4 space-y-8">
+                      {isLoading || isLoadingSmartRecs ? (
                         <div className="flex items-center justify-center py-12">
                           <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
                         </div>
+                      ) : hasSmartRecs ? (
+                        <>
+                          {/* Popular */}
+                          {smartRecommendations!.popular.length > 0 && (
+                            <div className="space-y-3">
+                              <h3 className="font-semibold flex items-center gap-2 text-sm">
+                                <Star className="h-4 w-4 text-primary" />
+                                Popular Movies
+                              </h3>
+                              <div className="grid grid-cols-3 gap-4">
+                                {smartRecommendations!.popular.map((movie, index) => (
+                                  <motion.div key={movie.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.03 }}>
+                                    <MovieCard movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
+                                  </motion.div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Trending */}
+                          {smartRecommendations!.trending.length > 0 && (
+                            <div className="space-y-3">
+                              <h3 className="font-semibold flex items-center gap-2 text-sm">
+                                <TrendingUp className="h-4 w-4 text-primary" />
+                                Trending Now
+                              </h3>
+                              <div className="grid grid-cols-3 gap-4">
+                                {smartRecommendations!.trending.map((movie, index) => (
+                                  <motion.div key={movie.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.03 }}>
+                                    <MovieCard movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
+                                  </motion.div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Underrated */}
+                          {smartRecommendations!.underrated.length > 0 && (
+                            <div className="space-y-3">
+                              <h3 className="font-semibold flex items-center gap-2 text-sm">
+                                <Eye className="h-4 w-4 text-primary" />
+                                Hidden Gems
+                              </h3>
+                              <div className="grid grid-cols-3 gap-4">
+                                {smartRecommendations!.underrated.map((movie, index) => (
+                                  <motion.div key={movie.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.03 }}>
+                                    <MovieCard movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
+                                  </motion.div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* TV Series */}
+                          {smartRecommendations!.tvSeries.length > 0 && (
+                            <div className="space-y-3">
+                              <h3 className="font-semibold flex items-center gap-2 text-sm">
+                                <Tv className="h-4 w-4 text-primary" />
+                                Recommended TV Series
+                              </h3>
+                              <div className="grid grid-cols-3 gap-4">
+                                {smartRecommendations!.tvSeries.map((show, index) => (
+                                  <motion.div key={show.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.03 }}>
+                                    <div
+                                      className="cursor-pointer"
+                                      onClick={() => navigate(`/movie/${show.id}?type=tv`)}
+                                    >
+                                      <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-muted">
+                                        {show.poster_path ? (
+                                          <img
+                                            src={`https://image.tmdb.org/t/p/w300${show.poster_path}`}
+                                            alt={show.name}
+                                            className="w-full h-full object-cover"
+                                            loading="lazy"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                            <Tv className="h-8 w-8" />
+                                          </div>
+                                        )}
+                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                                          <p className="text-white text-xs font-medium line-clamp-2">{show.name}</p>
+                                          <p className="text-white/70 text-[10px]">⭐ {show.vote_average.toFixed(1)}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <div className="grid grid-cols-3 gap-4">
-                          {moodMovies?.results.slice(0, 12).map((movie, index) => (
-                            <motion.div
-                              key={movie.id}
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: index * 0.05 }}
-                            >
-                              <MovieCard
-                                movie={movie}
-                                size="sm"
-                                onAddToWatchlist={addToWatchlist}
-                                onMarkWatched={markAsWatched}
-                                onClick={() => navigate(`/movie/${movie.id}`)}
-                                isInWatchlist={isInWatchlist(movie.id)}
-                                isWatched={isWatched(movie.id)}
-                              />
+                          {movieResults.map((movie, index) => (
+                            <motion.div key={movie.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05 }}>
+                              <MovieCard movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
                             </motion.div>
                           ))}
                         </div>
@@ -570,17 +680,8 @@ export default function MoodMatch() {
                       ) : (
                         <div className="grid grid-cols-3 gap-4">
                           {moodAnime?.slice(0, 12).map((anime, index) => (
-                            <motion.div
-                              key={anime.id}
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: index * 0.05 }}
-                            >
-                              <AnimeCard
-                                anime={anime}
-                                size="sm"
-                                onClick={() => handleAnimeClick(anime)}
-                              />
+                            <motion.div key={anime.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05 }}>
+                              <AnimeCard anime={anime} size="sm" onClick={() => handleAnimeClick(anime)} />
                             </motion.div>
                           ))}
                         </div>
@@ -595,17 +696,8 @@ export default function MoodMatch() {
                       ) : (
                         <div className="grid grid-cols-3 gap-4">
                           {moodManga?.slice(0, 12).map((manga, index) => (
-                            <motion.div
-                              key={manga.id}
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: index * 0.05 }}
-                            >
-                              <AnimeCard
-                                anime={manga}
-                                size="sm"
-                                onClick={() => handleAnimeClick(manga)}
-                              />
+                            <motion.div key={manga.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05 }}>
+                              <AnimeCard anime={manga} size="sm" onClick={() => handleAnimeClick(manga)} />
                             </motion.div>
                           ))}
                         </div>
