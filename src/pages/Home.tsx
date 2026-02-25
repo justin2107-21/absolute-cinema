@@ -7,8 +7,11 @@ import { MovieCard } from '@/components/movies/MovieCard';
 import { MovieRow } from '@/components/movies/MovieRow';
 import { MovieRowSkeleton } from '@/components/movies/MovieSkeleton';
 import { HeroSlider } from '@/components/home/HeroSlider';
+import { UnifiedCard } from '@/components/content/UnifiedCard';
 
 import { getDiversifiedHomeContent } from '@/lib/tmdb';
+import { getTrendingAnime } from '@/lib/anilist';
+import { anilistToUnified, getContentPath } from '@/lib/unified-content';
 import { getPersonalizedRecommendations, getDiverseDiscovery } from '@/lib/recommendations';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { useNavigate } from 'react-router-dom';
@@ -44,6 +47,15 @@ export default function Home() {
     queryFn: getDiversifiedHomeContent,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Trending Anime from AniList
+  const { data: trendingAnime } = useQuery({
+    queryKey: ['trending-anime-home'],
+    queryFn: getTrendingAnime,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const trendingAnimeUnified = trendingAnime?.slice(0, 10).map(anilistToUnified) || [];
 
   // Personalized recommendations based on watch history
   const { data: personalRecs } = useQuery({
@@ -82,34 +94,14 @@ export default function Home() {
         {/* Quick Filter Buttons */}
         <section className="px-4">
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/movies')}
-              className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border-border/50"
-            >
-              <Film className="h-4 w-4" />
-              Movies
+            <Button variant="outline" size="sm" onClick={() => navigate('/movies')} className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border-border/50">
+              <Film className="h-4 w-4" /> Movies
             </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/tv-series')}
-              className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border-border/50"
-            >
-              <Tv className="h-4 w-4" />
-              TV Series
+            <Button variant="outline" size="sm" onClick={() => navigate('/tv-series')} className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border-border/50">
+              <Tv className="h-4 w-4" /> TV Series
             </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowCategories(true)}
-              className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border-border/50"
-            >
-              <LayoutGrid className="h-4 w-4" />
-              Categories
+            <Button variant="outline" size="sm" onClick={() => setShowCategories(true)} className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border-border/50">
+              <LayoutGrid className="h-4 w-4" /> Categories
             </Button>
           </div>
         </section>
@@ -117,46 +109,16 @@ export default function Home() {
         {/* Categories Modal */}
         <AnimatePresence>
           {showCategories && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4"
-              onClick={() => setShowCategories(false)}
-            >
-              {/* Backdrop */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4" onClick={() => setShowCategories(false)}>
               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-              
-              {/* Dropdown Content */}
-              <motion.div
-                initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-                onClick={(e) => e.stopPropagation()}
-                className="relative w-full max-w-sm bg-card/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl overflow-hidden z-10"
-              >
-                {/* Header */}
+              <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -20, scale: 0.95 }} transition={{ duration: 0.2 }} onClick={(e) => e.stopPropagation()} className="relative w-full max-w-sm bg-card/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl overflow-hidden z-10">
                 <div className="flex items-center justify-between p-4 border-b border-border/50">
                   <h3 className="font-semibold text-foreground">Categories</h3>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowCategories(false)}
-                    className="h-8 w-8"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setShowCategories(false)} className="h-8 w-8"><X className="h-4 w-4" /></Button>
                 </div>
-                
-                {/* Genre List */}
                 <div className="max-h-80 overflow-y-auto p-2">
                   {GENRES.map((genre) => (
-                    <button
-                      key={genre.id}
-                      onClick={() => handleCategorySelect(genre.id, genre.name)}
-                      className="w-full text-left px-4 py-3 rounded-lg hover:bg-primary/10 transition-colors text-foreground/90 hover:text-foreground"
-                    >
+                    <button key={genre.id} onClick={() => handleCategorySelect(genre.id, genre.name)} className="w-full text-left px-4 py-3 rounded-lg hover:bg-primary/10 transition-colors text-foreground/90 hover:text-foreground">
                       {genre.name}
                     </button>
                   ))}
@@ -166,10 +128,9 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        {/* Movie Rows - Using diversified content */}
+        {/* Movie Rows */}
         {isLoading ? (
           <>
-            <MovieRowSkeleton />
             <MovieRowSkeleton />
             <MovieRowSkeleton />
             <MovieRowSkeleton />
@@ -183,7 +144,15 @@ export default function Home() {
               ))}
             </MovieRow>
 
-            {/* Personalized recommendations for returning users */}
+            {/* Trending Anime */}
+            {trendingAnimeUnified.length > 0 && (
+              <MovieRow title="Trending Anime" subtitle="Popular anime right now" icon={<Sparkles className="h-5 w-5" />}>
+                {trendingAnimeUnified.map((content) => (
+                  <UnifiedCard key={content.id} content={content} size="sm" onClick={() => navigate(getContentPath(content))} />
+                ))}
+              </MovieRow>
+            )}
+
             {personalRecs?.forYou && personalRecs.forYou.length > 0 && (
               <MovieRow title="For You" subtitle="Based on your watch history" icon={<Sparkles className="h-5 w-5" />}>
                 {personalRecs.forYou.map((movie) => (
@@ -211,7 +180,6 @@ export default function Home() {
               </MovieRow>
             )}
 
-            {/* Discovery for new users */}
             {discovery && discovery.length > 0 && (
               <MovieRow title="Discover" subtitle="Explore something new" icon={<Shuffle className="h-5 w-5" />}>
                 {discovery.map((movie) => (
