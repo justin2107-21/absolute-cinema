@@ -48,11 +48,13 @@ export default function Home() {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Trending Anime from AniList
+  // Trending Anime from AniList - resilient to failures
   const { data: trendingAnime } = useQuery({
     queryKey: ['trending-anime-home'],
     queryFn: getTrendingAnime,
     staleTime: 1000 * 60 * 10,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
   });
 
   const trendingAnimeUnified = trendingAnime?.slice(0, 10).map(anilistToUnified) || [];

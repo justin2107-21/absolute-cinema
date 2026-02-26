@@ -30,13 +30,17 @@ export default function Search() {
     queryKey: ['search', searchQuery],
     queryFn: () => searchMovies(searchQuery),
     enabled: searchQuery.length > 2,
+    staleTime: 1000 * 60 * 2,
+    retry: 2,
   });
 
-  // AniList search
+  // AniList search - use SEARCH_MATCH sort for consistency
   const { data: animeResults, isLoading: isSearchingAnime } = useQuery({
     queryKey: ['search-anime', searchQuery],
     queryFn: () => searchAnime(searchQuery),
     enabled: searchQuery.length > 2,
+    staleTime: 1000 * 60 * 2,
+    retry: 2,
   });
 
   const animeUnified = animeResults?.map(anilistToUnified) || [];
@@ -177,9 +181,9 @@ export default function Search() {
                 </MovieGrid>
               )}
 
-              {filteredAnime.length > 0 && searchQuery.length > 2 && (
+              {filteredAnime.length > 0 && (searchQuery.length > 2 || contentType === 'anime') && (
                 <MovieGrid title="Anime Results">
-                  {filteredAnime.slice(0, 12).map((content, index) => (
+                  {filteredAnime.slice(0, 18).map((content, index) => (
                     <motion.div key={content.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
                       <UnifiedCard content={content} size="sm" onClick={() => navigate(getContentPath(content))} />
                     </motion.div>

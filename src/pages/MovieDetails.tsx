@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, 
@@ -195,7 +196,16 @@ export default function MovieDetails() {
                 <Check className="h-4 w-4" />
               )}
             </Button>
-            <Button variant="glass" size="icon">
+            <Button variant="glass" size="icon" onClick={async () => {
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: movie.title, url: window.location.href });
+                } else {
+                  await navigator.clipboard.writeText(window.location.href);
+                  toast.success('Link copied to clipboard!');
+                }
+              } catch (e) { console.error('Share error:', e); }
+            }}>
               <Share2 className="h-4 w-4" />
             </Button>
           </div>
