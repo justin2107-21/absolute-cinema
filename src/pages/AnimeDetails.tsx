@@ -58,7 +58,11 @@ export default function AnimeDetails() {
 
   const { data: anime, isLoading, error } = useQuery({
     queryKey: ['anilist-detail', id],
-    queryFn: () => getAniListDetails(Number(id)),
+    queryFn: async () => {
+      const data = await getAniListDetails(Number(id));
+      if (!data) throw new Error('Failed to load AniList details');
+      return data;
+    },
     enabled: !!id,
     retry: 2,
   });
@@ -245,8 +249,8 @@ export default function AnimeDetails() {
             <div><span className="text-muted-foreground">Romaji:</span> <span>{anime.title.romaji}</span></div>
             {anime.title.english && <div><span className="text-muted-foreground">English:</span> <span>{anime.title.english}</span></div>}
             <div><span className="text-muted-foreground">Native:</span> <span>{anime.title.native}</span></div>
-            {anime.title.synonyms?.length > 0 && (
-              <div><span className="text-muted-foreground">Synonyms:</span> <span>{anime.title.synonyms.join(', ')}</span></div>
+            {anime.synonyms?.length > 0 && (
+              <div><span className="text-muted-foreground">Synonyms:</span> <span>{anime.synonyms.join(', ')}</span></div>
             )}
           </div>
         </section>

@@ -27,7 +27,8 @@ export interface AniListMedia {
 
 export interface AniListDetailMedia {
   id: number;
-  title: { romaji: string; english: string | null; native: string; synonyms: string[] };
+  title: { romaji: string; english: string | null; native: string };
+  synonyms: string[];
   coverImage: { extraLarge: string; large: string };
   bannerImage: string | null;
   description: string | null;
@@ -159,8 +160,15 @@ async function anilistFetch<T>(query: string, variables: Record<string, unknown>
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ query, variables }),
     });
+
     const data = await response.json();
-    return data.data;
+
+    if (!response.ok || data?.errors?.length) {
+      console.error('AniList GraphQL error:', data?.errors || response.statusText);
+      return null;
+    }
+
+    return data?.data ?? null;
   } catch (error) {
     console.error('AniList API error:', error);
     return null;
@@ -244,7 +252,8 @@ export async function getAniListDetails(id: number): Promise<AniListDetailMedia 
     query ($id: Int) {
       Media(id: $id) {
         id
-        title { romaji english native synonyms }
+        title { romaji english native }
+        synonyms
         coverImage { extraLarge large }
         bannerImage
         description(asHtml: false)
