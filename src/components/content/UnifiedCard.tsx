@@ -1,7 +1,5 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Plus, Star, Check, Bookmark, Tv, BookOpen } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { motion } from 'framer-motion';
+import { Star, Tv } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UnifiedContent } from '@/lib/unified-content';
 
@@ -9,9 +7,10 @@ interface UnifiedCardProps {
   content: UnifiedContent;
   onClick?: () => void;
   size?: 'sm' | 'md' | 'lg';
+  showTypeBadge?: boolean;
 }
 
-export function UnifiedCard({ content, onClick, size = 'md' }: UnifiedCardProps) {
+export function UnifiedCard({ content, onClick, size = 'md', showTypeBadge = false }: UnifiedCardProps) {
   const sizeClasses = {
     sm: 'w-28 h-40',
     md: 'w-36 h-52',
@@ -20,16 +19,6 @@ export function UnifiedCard({ content, onClick, size = 'md' }: UnifiedCardProps)
 
   const releaseYear = content.releaseDate?.split('-')[0];
   const rating = content.rating?.toFixed(1);
-
-  const typeBadge = content.type === 'anime' ? (
-    <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-primary/90 text-primary-foreground text-[10px] font-medium flex items-center gap-0.5">
-      <Play className="h-2.5 w-2.5" /> Anime
-    </span>
-  ) : content.type === 'tv' ? (
-    <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-accent/90 text-accent-foreground text-[10px] font-medium flex items-center gap-0.5">
-      <Tv className="h-2.5 w-2.5" /> TV
-    </span>
-  ) : null;
 
   return (
     <motion.div
@@ -40,17 +29,10 @@ export function UnifiedCard({ content, onClick, size = 'md' }: UnifiedCardProps)
     >
       <div className="relative h-full w-full overflow-hidden rounded-xl">
         {content.poster ? (
-          <img
-            src={content.poster}
-            alt={content.title}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
+          <img src={content.poster} alt={content.title} className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-secondary">
-            <span className="text-xs text-muted-foreground text-center p-2">
-              {content.title}
-            </span>
+            <span className="text-xs text-muted-foreground text-center p-2">{content.title}</span>
           </div>
         )}
 
@@ -60,8 +42,12 @@ export function UnifiedCard({ content, onClick, size = 'md' }: UnifiedCardProps)
           <span className="text-xs font-semibold">{rating}</span>
         </div>
 
-        {/* Type badge */}
-        {typeBadge}
+        {/* Type badge - only when explicitly enabled */}
+        {showTypeBadge && content.type === 'tv' && (
+          <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-accent/90 text-accent-foreground text-[10px] font-medium flex items-center gap-0.5">
+            <Tv className="h-2.5 w-2.5" /> TV
+          </span>
+        )}
 
         {/* Bottom info */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
