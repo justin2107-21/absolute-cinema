@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Star, Play, Calendar, Film, Tv, LayoutGrid, X, Sparkles, Gem, Shuffle } from 'lucide-react';
+import { TrendingUp, Star, Play, Calendar, Film, Tv, LayoutGrid, X, Sparkles, Gem, Shuffle, Crown, Clock, Trophy, ChevronRight } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MovieCard } from '@/components/movies/MovieCard';
 import { MovieRow } from '@/components/movies/MovieRow';
@@ -10,7 +10,7 @@ import { HeroSlider } from '@/components/home/HeroSlider';
 import { UnifiedCard } from '@/components/content/UnifiedCard';
 
 import { getDiversifiedHomeContent } from '@/lib/tmdb';
-import { getTrendingAnime } from '@/lib/anilist';
+import { getTrendingAnime, getUpcomingNextSeasonAnime, getAllTimePopularAnime, getTop100Anime } from '@/lib/anilist';
 import { anilistToUnified, getContentPath } from '@/lib/unified-content';
 import { getPersonalizedRecommendations, getDiverseDiscovery } from '@/lib/recommendations';
 import { useWatchlist } from '@/hooks/useWatchlist';
@@ -57,7 +57,31 @@ export default function Home() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
   });
 
+  const { data: upcomingAnime } = useQuery({
+    queryKey: ['upcoming-anime-home'],
+    queryFn: getUpcomingNextSeasonAnime,
+    staleTime: 1000 * 60 * 10,
+    retry: 2,
+  });
+
+  const { data: allTimePopularAnime } = useQuery({
+    queryKey: ['alltime-popular-anime-home'],
+    queryFn: getAllTimePopularAnime,
+    staleTime: 1000 * 60 * 10,
+    retry: 2,
+  });
+
+  const { data: top100Anime } = useQuery({
+    queryKey: ['top100-anime-home'],
+    queryFn: () => getTop100Anime(1),
+    staleTime: 1000 * 60 * 10,
+    retry: 2,
+  });
+
   const trendingAnimeUnified = trendingAnime?.slice(0, 10).map(anilistToUnified) || [];
+  const upcomingAnimeUnified = upcomingAnime?.slice(0, 10).map(anilistToUnified) || [];
+  const allTimePopularUnified = allTimePopularAnime?.slice(0, 10).map(anilistToUnified) || [];
+  const top100AnimeUnified = top100Anime?.slice(0, 10).map(anilistToUnified) || [];
 
   // Personalized recommendations based on watch history
   const { data: personalRecs } = useQuery({
@@ -155,6 +179,24 @@ export default function Home() {
               </MovieRow>
             )}
 
+            {/* Upcoming Next Season Anime */}
+            {upcomingAnimeUnified.length > 0 && (
+              <MovieRow title="Upcoming Next Season" subtitle="Anime airing next season" icon={<Clock className="h-5 w-5" />}>
+                {upcomingAnimeUnified.map((content) => (
+                  <UnifiedCard key={content.id} content={content} size="sm" onClick={() => navigate(getContentPath(content))} />
+                ))}
+              </MovieRow>
+            )}
+
+            {/* All-Time Popular Anime */}
+            {allTimePopularUnified.length > 0 && (
+              <MovieRow title="All-Time Popular Anime" subtitle="The most popular anime ever" icon={<Crown className="h-5 w-5" />}>
+                {allTimePopularUnified.map((content) => (
+                  <UnifiedCard key={content.id} content={content} size="sm" onClick={() => navigate(getContentPath(content))} />
+                ))}
+              </MovieRow>
+            )}
+
             {personalRecs?.forYou && personalRecs.forYou.length > 0 && (
               <MovieRow title="For You" subtitle="Based on your watch history" icon={<Sparkles className="h-5 w-5" />}>
                 {personalRecs.forYou.map((movie) => (
@@ -218,6 +260,22 @@ export default function Home() {
                   onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
               ))}
             </MovieRow>
+
+            {/* Top 100 Anime - Preview with View All */}
+            {top100AnimeUnified.length > 0 && (
+              <div className="space-y-2">
+                <MovieRow title="Top 100 Anime" subtitle="Highest rated of all time" icon={<Trophy className="h-5 w-5" />}>
+                  {top100AnimeUnified.map((content) => (
+                    <UnifiedCard key={content.id} content={content} size="sm" onClick={() => navigate(getContentPath(content))} />
+                  ))}
+                </MovieRow>
+                <div className="px-4">
+                  <Button variant="outline" className="w-full gap-2" onClick={() => navigate('/top-anime')}>
+                    View All Top 100 Anime <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

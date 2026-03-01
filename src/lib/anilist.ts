@@ -247,6 +247,58 @@ export async function getTrendingAnime(): Promise<AniListMedia[]> {
   return data?.Page?.media || [];
 }
 
+export async function getUpcomingNextSeasonAnime(): Promise<AniListMedia[]> {
+  const now = new Date();
+  const month = now.getMonth();
+  // Determine next season
+  let nextSeason: string;
+  let nextYear = now.getFullYear();
+  if (month < 3) { nextSeason = 'SPRING'; }
+  else if (month < 6) { nextSeason = 'SUMMER'; }
+  else if (month < 9) { nextSeason = 'FALL'; }
+  else { nextSeason = 'WINTER'; nextYear++; }
+
+  const query = `
+    query ($season: MediaSeason, $seasonYear: Int) {
+      Page(page: 1, perPage: 20) {
+        media(type: ANIME, season: $season, seasonYear: $seasonYear, sort: POPULARITY_DESC, isAdult: false) {
+          ${MEDIA_FIELDS}
+        }
+      }
+    }
+  `;
+  const data = await anilistFetch<{ Page: { media: AniListMedia[] } }>(query, { season: nextSeason, seasonYear: nextYear });
+  return data?.Page?.media || [];
+}
+
+export async function getAllTimePopularAnime(): Promise<AniListMedia[]> {
+  const query = `
+    query {
+      Page(page: 1, perPage: 20) {
+        media(type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
+          ${MEDIA_FIELDS}
+        }
+      }
+    }
+  `;
+  const data = await anilistFetch<{ Page: { media: AniListMedia[] } }>(query);
+  return data?.Page?.media || [];
+}
+
+export async function getTop100Anime(page = 1): Promise<AniListMedia[]> {
+  const query = `
+    query ($page: Int, $perPage: Int) {
+      Page(page: $page, perPage: $perPage) {
+        media(type: ANIME, sort: SCORE_DESC, isAdult: false, averageScore_greater: 1) {
+          ${MEDIA_FIELDS}
+        }
+      }
+    }
+  `;
+  const data = await anilistFetch<{ Page: { media: AniListMedia[] } }>(query, { page, perPage: 50 });
+  return data?.Page?.media || [];
+}
+
 export async function getAniListDetails(id: number): Promise<AniListDetailMedia | null> {
   const query = `
     query ($id: Int) {
