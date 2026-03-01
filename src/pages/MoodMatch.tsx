@@ -204,14 +204,30 @@ export default function MoodMatch() {
     setIsAiThinking(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('mood-chat', {
-        body: {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/mood-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({
           message: chatInput,
           conversationHistory: chatHistory.map((m) => ({ role: m.role, content: m.content })),
-        },
+        }),
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('RATE_LIMIT');
+        }
+        throw new Error(data?.error || `Server error (${response.status})`);
+      }
 
       const prefs: MoodPreferences = data.preferences;
       const aiMessage: LuminaMessage = {
@@ -235,14 +251,18 @@ export default function MoodMatch() {
       }
     } catch (error: any) {
       console.error('Lumina AI error:', error);
-      // NO FALLBACK to Quick Mood Picks. Show error only.
+      const isRateLimit = error?.message === 'RATE_LIMIT';
       const errorMessage: LuminaMessage = {
         role: 'assistant',
-        content: "I'm having trouble connecting right now. Please try again in a moment — I want to give you the best personalized recommendations.",
+        content: isRateLimit
+          ? "I'm experiencing high demand right now. Please wait a moment and try again — I'll be ready to help you shortly!"
+          : "I'm having trouble connecting right now. Please try again in a moment — I want to give you the best personalized recommendations.",
         isError: true,
       };
       setChatHistory((prev) => [...prev, errorMessage]);
-      toast.error('Lumina AI temporarily unavailable. Please try again.');
+      toast.error(isRateLimit
+        ? 'Rate limit reached. Please wait a moment and try again.'
+        : 'Lumina AI connection issue. Please try again.');
     } finally {
       setIsAiThinking(false);
     }
