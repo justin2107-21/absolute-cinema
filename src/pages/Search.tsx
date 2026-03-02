@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Search as SearchIcon, X, TrendingUp, Film, Tv, Play } from 'lucide-react';
@@ -9,7 +9,7 @@ import { UnifiedCard } from '@/components/content/UnifiedCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SearchFilters, type Filter } from '@/components/search/SearchFilters';
-import { searchMovies, getPopularMovies, getTrendingMovies, getTopRatedMovies, getMoviesByGenre } from '@/lib/tmdb';
+import { searchMovies, getPopularMovies, getTrendingMovies, getTopRatedMovies, getMoviesByGenre, searchMulti, type MultiSearchResult, type Movie } from '@/lib/tmdb';
 import { searchAnime } from '@/lib/anilist';
 import { anilistToUnified, getContentPath } from '@/lib/unified-content';
 import { useWatchlist } from '@/hooks/useWatchlist';
@@ -19,33 +19,51 @@ import { cn } from '@/lib/utils';
 
 type ContentTypeFilter = 'all' | 'movies' | 'tv' | 'anime';
 
+function multiToMovie(r: MultiSearchResult): Movie {
+  return {
+    id: r.id,
+    title: r.title || r.name || '',
+    overview: r.overview || '',
+    poster_path: r.poster_path,
+    backdrop_path: r.backdrop_path,
+    release_date: r.release_date || r.first_air_date || '',
+    vote_average: r.vote_average,
+    vote_count: r.vote_count,
+    genre_ids: r.genre_ids || [],
+    popularity: r.popularity,
+  };
+}
+
 export default function Search() {
   const navigate = useNavigate();
   const { searchQuery, setSearchQuery, selectedFilter, setSelectedFilter } = useSearch();
   const { addToWatchlist, markAsWatched, isInWatchlist, isWatched } = useWatchlist();
   const [contentType, setContentType] = useState<ContentTypeFilter>('all');
 
-  // TMDB search
-  const { data: searchResults, isLoading: isSearching } = useQuery({
-    queryKey: ['search', searchQuery],
-    queryFn: () => searchMovies(searchQuery),
+  // TMDB multi-search (movies + TV)
+  const { data: multiResults, isLoading: isSearching } = useQuery({
+    queryKey: ['search-multi', searchQuery],
+    queryFn: () => searchMulti(searchQuery),
     enabled: searchQuery.length > 2,
     staleTime: 1000 * 60 * 2,
     retry: 2,
   });
 
-  // AniList search - use SEARCH_MATCH sort for consistency
+  // AniList search
   const { data: animeResults, isLoading: isSearchingAnime } = useQuery({
     queryKey: ['search-anime', searchQuery],
     queryFn: () => searchAnime(searchQuery),
     enabled: searchQuery.length > 2,
     staleTime: 1000 * 60 * 2,
-    retry: 2,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 
+  const movieResults = multiResults?.results?.filter(r => r.media_type === 'movie').map(multiToMovie) || [];
+  const tvResults = multiResults?.results?.filter(r => r.media_type === 'tv').map(multiToMovie) || [];
   const animeUnified = animeResults?.map(anilistToUnified) || [];
 
-  // Filter-based results
+  // Filter-based results (no search)
   const { data: filterResults, isLoading: isFilterLoading } = useQuery({
     queryKey: ['filter', selectedFilter],
     queryFn: async () => {
@@ -83,17 +101,23 @@ export default function Search() {
     enabled: !selectedFilter && searchQuery.length <= 2,
   });
 
-  const movies = searchQuery.length > 2
-    ? searchResults?.results || []
-    : selectedFilter && filterResults
-      ? filterResults.results || []
-      : popular?.results || [];
+  const defaultMovies = selectedFilter && filterResults
+    ? filterResults.results || []
+    : popular?.results || [];
 
   const isLoading = isSearching || isFilterLoading || isSearchingAnime;
+  const isSearchActive = searchQuery.length > 2;
 
-  // Filter movies vs anime based on content type
-  const filteredMovies = contentType === 'anime' ? [] : movies;
-  const filteredAnime = contentType === 'movies' || contentType === 'tv' ? [] : animeUnified;
+  // Apply content type filter
+  const showMovies = contentType === 'all' || contentType === 'movies';
+  const showTV = contentType === 'all' || contentType === 'tv';
+  const showAnime = contentType === 'all' || contentType === 'anime';
+
+  const filteredMovies = isSearchActive && showMovies ? movieResults : [];
+  const filteredTV = isSearchActive && showTV ? tvResults : [];
+  const filteredAnime = isSearchActive && showAnime ? animeUnified : [];
+
+  const hasResults = filteredMovies.length > 0 || filteredTV.length > 0 || filteredAnime.length > 0;
 
   const handleFilterSelect = (filter: Filter | null) => {
     setSelectedFilter(filter?.id || null);
@@ -101,7 +125,7 @@ export default function Search() {
   };
 
   const getTitle = () => {
-    if (searchQuery.length > 2) return `Results for "${searchQuery}"`;
+    if (isSearchActive) return `Results for "${searchQuery}"`;
     if (selectedFilter) {
       const filterLabels: Record<string, string> = {
         'trending': 'Trending Movies', 'top-rated': 'Top Rated Movies', 'popular': 'Most Watched',
@@ -139,7 +163,6 @@ export default function Search() {
             )}
           </div>
 
-          {/* Content type filter chips */}
           <div className="flex gap-2">
             {contentTypeFilters.map((f) => (
               <button
@@ -168,12 +191,12 @@ export default function Search() {
             </div>
           )}
 
-          {!isLoading && (filteredMovies.length > 0 || filteredAnime.length > 0) && (
+          {!isLoading && isSearchActive && hasResults && (
             <>
               {filteredMovies.length > 0 && (
-                <MovieGrid title={getTitle()}>
+                <MovieGrid title="Movies">
                   {filteredMovies.slice(0, 18).map((movie, index) => (
-                    <motion.div key={movie.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
+                    <motion.div key={`movie-${movie.id}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
                       <MovieCard movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched}
                         onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
                     </motion.div>
@@ -181,8 +204,19 @@ export default function Search() {
                 </MovieGrid>
               )}
 
-              {filteredAnime.length > 0 && (searchQuery.length > 2 || contentType === 'anime') && (
-                <MovieGrid title="Anime Results">
+              {filteredTV.length > 0 && (
+                <MovieGrid title="TV Shows">
+                  {filteredTV.slice(0, 18).map((show, index) => (
+                    <motion.div key={`tv-${show.id}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
+                      <MovieCard movie={show} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched}
+                        onClick={() => navigate(`/tv/${show.id}`)} isInWatchlist={isInWatchlist(show.id)} isWatched={isWatched(show.id)} />
+                    </motion.div>
+                  ))}
+                </MovieGrid>
+              )}
+
+              {filteredAnime.length > 0 && (
+                <MovieGrid title="Anime">
                   {filteredAnime.slice(0, 18).map((content, index) => (
                     <motion.div key={content.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
                       <UnifiedCard content={content} size="sm" onClick={() => navigate(getContentPath(content))} />
@@ -193,21 +227,27 @@ export default function Search() {
             </>
           )}
 
-          {!isLoading && searchQuery.length > 2 && filteredMovies.length === 0 && filteredAnime.length === 0 && (
+          {!isLoading && isSearchActive && !hasResults && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-16 text-center">
               <SearchIcon className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold">No results found</h3>
-              <p className="text-sm text-muted-foreground">Try a different search term</p>
+              <p className="text-sm text-muted-foreground">Try a different search term or check spelling</p>
             </motion.div>
           )}
 
-          {!selectedFilter && searchQuery.length <= 2 && (
-            <div className="px-4 space-y-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold">Popular Movies</h2>
-              </div>
-            </div>
+          {!isSearchActive && (
+            <>
+              {defaultMovies.length > 0 && (
+                <MovieGrid title={getTitle() || 'Popular Movies'}>
+                  {defaultMovies.slice(0, 18).map((movie, index) => (
+                    <motion.div key={movie.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
+                      <MovieCard movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched}
+                        onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
+                    </motion.div>
+                  ))}
+                </MovieGrid>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -88,9 +88,36 @@ export function anilistToUnified(media: AniListMedia): UnifiedContent {
     status: media.status,
     season: media.season,
     seasonYear: media.seasonYear,
-    format: media.type,
+    format: media.format || media.type,
     sourceId: media.id,
   };
+}
+
+// Score emoji based on percentage
+export function getScoreEmoji(scorePercent: number | null): string {
+  if (!scorePercent) return '❓';
+  if (scorePercent >= 85) return '😍';
+  if (scorePercent >= 75) return '🙂';
+  if (scorePercent >= 60) return '😐';
+  if (scorePercent >= 40) return '😕';
+  return '😢';
+}
+
+// Format AniList format field for display
+export function formatAnimeFormat(f: string | null | undefined): string {
+  if (!f) return 'TV';
+  const map: Record<string, string> = {
+    TV: 'TV', TV_SHORT: 'TV Short', MOVIE: 'Movie', SPECIAL: 'Special',
+    OVA: 'OVA', ONA: 'ONA', MUSIC: 'Music', MANGA: 'Manga', NOVEL: 'Novel',
+    ANIME: 'Anime',
+  };
+  return map[f] || f;
+}
+
+// Format season string for display
+export function formatSeason(s: string | null | undefined): string {
+  if (!s) return '';
+  return s.charAt(0) + s.slice(1).toLowerCase();
 }
 
 // Parse a unified content ID back to source + numeric ID

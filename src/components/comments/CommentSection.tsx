@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ThumbsUp, Reply, MoreHorizontal, Send, ChevronDown, AlertTriangle } from 'lucide-react';
+import { MessageSquare, ThumbsUp, Reply, MoreHorizontal, Send, ChevronDown, AlertTriangle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -54,6 +54,7 @@ export function CommentSection({
   const [replyContent, setReplyContent] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+  const [showGuidelines, setShowGuidelines] = useState(false);
 
   // Build query key based on context
   const queryKey = ['comments', contentType, contentId, seasonNumber, episodeNumber, chapterNumber];
@@ -448,13 +449,44 @@ export function CommentSection({
       )}
 
       {/* Community Guidelines */}
-      <p className="text-xs text-muted-foreground">
-        Please respect our{' '}
-        <a href="#" className="text-primary hover:underline">
-          Community Guidelines
-        </a>{' '}
-        when posting comments.
-      </p>
+      <div className="text-xs text-muted-foreground space-y-1">
+        <p>
+          Please respect our{' '}
+          <button onClick={() => setShowGuidelines(true)} className="text-primary hover:underline font-medium">
+            Community Guidelines
+          </button>{' '}
+          when posting comments.
+        </p>
+      </div>
+
+      {/* Community Guidelines Dialog */}
+      {showGuidelines && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowGuidelines(false)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-10" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-semibold">Community Guidelines</h3>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowGuidelines(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-4 max-h-[60vh] overflow-y-auto space-y-3 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">Be respectful and constructive</p>
+              <ul className="list-disc pl-4 space-y-2">
+                <li>Treat others with respect. No hate speech, harassment, or personal attacks.</li>
+                <li>Keep discussions relevant to the content being discussed.</li>
+                <li>No spoilers without proper warnings — use spoiler tags when discussing plot points.</li>
+                <li>Do not post spam, advertisements, or self-promotion.</li>
+                <li>Avoid excessive use of caps, emojis, or repetitive messages.</li>
+                <li>Do not share illegal streaming links or pirated content.</li>
+                <li>Report inappropriate content instead of engaging with it.</li>
+                <li>Keep language appropriate — this is a community for all ages.</li>
+              </ul>
+              <p className="text-xs">Violations may result in comment removal or account suspension.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comments List */}
       {isLoading ? (

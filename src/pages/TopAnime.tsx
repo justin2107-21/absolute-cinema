@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Trophy, ArrowLeft } from 'lucide-react';
+import { Trophy, ArrowLeft, Star } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { UnifiedCard } from '@/components/content/UnifiedCard';
 import { getTop100Anime } from '@/lib/anilist';
-import { anilistToUnified, getContentPath } from '@/lib/unified-content';
+import { anilistToUnified, getContentPath, getScoreEmoji, formatAnimeFormat, formatSeason } from '@/lib/unified-content';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
@@ -44,23 +43,43 @@ export default function TopAnime() {
           </div>
         </header>
 
-        <div className="px-4">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
-            {unified.map((content, index) => (
+        <div className="px-4 space-y-2">
+          {unified.map((content, index) => {
+            const scorePercent = content.rating ? Math.round(content.rating * 10) : null;
+            const emoji = getScoreEmoji(scorePercent);
+            const format = formatAnimeFormat(content.format);
+            const season = content.season && content.seasonYear
+              ? `${formatSeason(content.season)} ${content.seasonYear}`
+              : content.seasonYear?.toString() || '';
+
+            return (
               <motion.div
                 key={content.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.02 }}
-                className="relative"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.015 }}
+                onClick={() => navigate(getContentPath(content))}
+                className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 cursor-pointer hover:bg-secondary/50 transition-colors"
               >
-                <div className="absolute -top-1 -left-1 z-10 bg-primary text-primary-foreground text-[10px] font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
-                  {index + 1}
+                <span className="text-sm font-bold text-primary w-8 text-right shrink-0">#{index + 1}</span>
+                <div className="w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                  {content.poster && (
+                    <img src={content.poster} alt={content.title} className="w-full h-full object-cover" loading="lazy" />
+                  )}
                 </div>
-                <UnifiedCard content={content} size="sm" onClick={() => navigate(getContentPath(content))} />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{content.title}</p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                    {scorePercent && <span className="font-semibold text-foreground">{scorePercent}%</span>}
+                    <span>{emoji}</span>
+                    <span>•</span>
+                    <span>{format}</span>
+                    {season && <><span>•</span><span>{season}</span></>}
+                  </div>
+                </div>
               </motion.div>
-            ))}
-          </div>
+            );
+          })}
           {unified.length === 0 && (
             <div className="flex items-center justify-center py-20">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />

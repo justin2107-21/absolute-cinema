@@ -6,24 +6,8 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { CommentSection } from '@/components/comments/CommentSection';
 import { getAniListDetails, type AniListDetailMedia } from '@/lib/anilist';
-import { useWatchlist } from '@/hooks/useWatchlist';
+import { useWatchlist, type WatchlistItem } from '@/hooks/useWatchlist';
 import { toast } from 'sonner';
-import type { Movie } from '@/lib/tmdb';
-
-function animeToMovie(anime: AniListDetailMedia): Movie {
-  return {
-    id: anime.id + 900000,
-    title: anime.title.english || anime.title.romaji,
-    overview: anime.description?.replace(/<[^>]*>/g, '') || '',
-    poster_path: null,
-    backdrop_path: null,
-    release_date: anime.startDate?.year ? `${anime.startDate.year}-01-01` : '',
-    vote_average: anime.averageScore ? anime.averageScore / 10 : 0,
-    vote_count: anime.popularity || 0,
-    genre_ids: [],
-    popularity: anime.popularity || 0,
-  };
-}
 
 function formatDate(d: { year: number | null; month: number | null; day: number | null } | null): string {
   if (!d?.year) return 'TBA';
@@ -92,9 +76,18 @@ export default function AnimeDetails() {
   }
 
   const title = anime.title.english || anime.title.romaji;
-  const movieProxy = animeToMovie(anime);
-  const inWatchlist = isInWatchlist(movieProxy.id);
-  const watched = isWatched(movieProxy.id);
+  const animeItem: WatchlistItem = {
+    id: `anilist-anime-${anime.id}`,
+    source: 'anilist',
+    mediaType: 'anime',
+    sourceId: anime.id,
+    title,
+    posterUrl: anime.coverImage.extraLarge || anime.coverImage.large,
+    releaseDate: anime.startDate?.year ? `${anime.startDate.year}-01-01` : undefined,
+    voteAverage: anime.averageScore ? anime.averageScore / 10 : undefined,
+  };
+  const inWatchlist = isInWatchlist(animeItem.id);
+  const watched = isWatched(animeItem.id);
   const rating = anime.averageScore ? (anime.averageScore / 10).toFixed(1) : null;
   const trailerUrl = anime.trailer?.site === 'youtube' ? `https://www.youtube.com/embed/${anime.trailer.id}` : null;
   const animationStudios = anime.studios?.nodes?.filter(s => s.isAnimationStudio) || [];
@@ -188,10 +181,10 @@ export default function AnimeDetails() {
         {/* Action Buttons */}
         <section className="px-4 -mt-2 relative z-20">
           <div className="flex gap-3">
-            <Button variant={inWatchlist ? "secondary" : "outline"} className="flex-1 gap-2" onClick={() => addToWatchlist(movieProxy)}>
+            <Button variant={inWatchlist ? "secondary" : "outline"} className="flex-1 gap-2" onClick={() => addToWatchlist(animeItem)}>
               {inWatchlist ? (<><Check className="h-4 w-4" /> In Watchlist</>) : (<><Plus className="h-4 w-4" /> Add to Watchlist</>)}
             </Button>
-            <Button variant="glass" size="icon" onClick={() => markAsWatched(movieProxy)}>
+            <Button variant="glass" size="icon" onClick={() => markAsWatched(animeItem)}>
               <Check className={`h-4 w-4 ${watched ? 'text-green-400' : ''}`} />
             </Button>
             <Button variant="glass" size="icon" onClick={handleShare}>

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { LogIn } from 'lucide-react';
+import { LogIn, Bookmark } from 'lucide-react';
 import { Logo } from '@/components/branding/Logo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,7 +13,16 @@ export function Header() {
       <div className="flex items-center justify-between px-4 py-3">
         <Logo onClick={() => navigate('/')} />
         
-        {!isAuthenticated && (
+        {isAuthenticated ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/watchlist')}
+            className="h-9 w-9"
+          >
+            <Bookmark className="h-5 w-5" />
+          </Button>
+        ) : (
           <Button
             variant="default"
             size="sm"
