@@ -1,18 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ArrowLeft, 
-  Globe, 
-  Palette, 
-  User, 
-  Shield, 
-  Bell, 
-  Accessibility, 
-  Users, 
-  Info,
-  ChevronRight,
-  Check,
-  X
+  ArrowLeft, Globe, Palette, User, Shield, Bell, Accessibility, Users, Info,
+  ChevronRight, Check, X
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -22,7 +12,7 @@ import { useMood, MoodType, moodThemes } from '@/contexts/MoodContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
-type SettingsSection = 'main' | 'language' | 'theme' | 'account' | 'privacy' | 'notifications' | 'accessibility' | 'watchparty' | 'about';
+type SettingsSection = 'main' | 'language' | 'theme' | 'account' | 'privacy' | 'notifications' | 'accessibility' | 'watchparty' | 'about' | 'terms' | 'privacypolicy' | 'contact' | 'guidelines';
 
 const moodOptions: { id: MoodType; label: string; emoji: string }[] = [
   { id: 'default', label: 'Default Purple', emoji: '💜' },
@@ -38,6 +28,98 @@ const moodOptions: { id: MoodType; label: string; emoji: string }[] = [
   { id: 'curious', label: 'Mysterious Violet', emoji: '🤔' },
   { id: 'hopeful', label: 'Fresh Mint', emoji: '✨' },
 ];
+
+const INFO_PAGES: Record<string, { title: string; content: React.ReactNode }> = {
+  terms: {
+    title: 'Terms of Service',
+    content: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <p className="font-medium text-foreground">Last updated: March 2026</p>
+        <p>Welcome to Absolute Cinema. By using our application, you agree to the following terms:</p>
+        <h4 className="font-semibold text-foreground">1. Acceptance of Terms</h4>
+        <p>By accessing or using Absolute Cinema, you agree to be bound by these Terms of Service and all applicable laws and regulations.</p>
+        <h4 className="font-semibold text-foreground">2. User Accounts</h4>
+        <p>You are responsible for maintaining the confidentiality of your account credentials. You agree to accept responsibility for all activities under your account.</p>
+        <h4 className="font-semibold text-foreground">3. User Content</h4>
+        <p>You retain ownership of content you post (comments, reviews). By posting, you grant us a non-exclusive license to display your content within the platform.</p>
+        <h4 className="font-semibold text-foreground">4. Prohibited Conduct</h4>
+        <p>Users may not: post illegal content, harass others, spam, distribute malware, attempt unauthorized access, or violate intellectual property rights.</p>
+        <h4 className="font-semibold text-foreground">5. Third-Party Services</h4>
+        <p>We use TMDB and AniList APIs for media data. We are not responsible for third-party service availability or accuracy.</p>
+        <h4 className="font-semibold text-foreground">6. Limitation of Liability</h4>
+        <p>Absolute Cinema is provided "as is" without warranties. We are not liable for any indirect, incidental, or consequential damages.</p>
+        <h4 className="font-semibold text-foreground">7. Changes to Terms</h4>
+        <p>We reserve the right to modify these terms at any time. Continued use constitutes acceptance of modified terms.</p>
+      </div>
+    ),
+  },
+  privacypolicy: {
+    title: 'Privacy Policy',
+    content: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <p className="font-medium text-foreground">Last updated: March 2026</p>
+        <h4 className="font-semibold text-foreground">Information We Collect</h4>
+        <p>We collect information you provide directly: email address, username, and profile data. We also collect usage data including watchlist activity and browsing preferences.</p>
+        <h4 className="font-semibold text-foreground">How We Use Information</h4>
+        <p>Your data is used to: provide and improve the service, personalize recommendations, enable social features, and communicate with you about your account.</p>
+        <h4 className="font-semibold text-foreground">Data Storage</h4>
+        <p>Your data is stored securely using industry-standard encryption. Watchlist data is stored locally on your device and in our cloud database when you're signed in.</p>
+        <h4 className="font-semibold text-foreground">Data Sharing</h4>
+        <p>We do not sell your personal data. We may share anonymized usage statistics. Your profile information may be visible to other users for social features.</p>
+        <h4 className="font-semibold text-foreground">Your Rights</h4>
+        <p>You can access, update, or delete your personal data at any time through the Settings page. You can request a full data export or account deletion.</p>
+        <h4 className="font-semibold text-foreground">Cookies & Local Storage</h4>
+        <p>We use local storage for preferences and session management. No third-party tracking cookies are used.</p>
+      </div>
+    ),
+  },
+  contact: {
+    title: 'Contact Support',
+    content: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <p className="font-medium text-foreground">We're here to help!</p>
+        <div className="glass-card p-4 space-y-3">
+          <h4 className="font-semibold text-foreground">Email Support</h4>
+          <p>For general inquiries, bug reports, or feature requests:</p>
+          <p className="text-primary font-medium">support@absolutecinema.app</p>
+        </div>
+        <div className="glass-card p-4 space-y-3">
+          <h4 className="font-semibold text-foreground">Report a Bug</h4>
+          <p>Found something broken? Please include:</p>
+          <ul className="list-disc pl-4 space-y-1">
+            <li>Description of the issue</li>
+            <li>Steps to reproduce</li>
+            <li>Device and browser information</li>
+            <li>Screenshots if possible</li>
+          </ul>
+        </div>
+        <div className="glass-card p-4 space-y-3">
+          <h4 className="font-semibold text-foreground">Response Time</h4>
+          <p>We typically respond within 24-48 hours during business days.</p>
+        </div>
+      </div>
+    ),
+  },
+  guidelines: {
+    title: 'Community Guidelines',
+    content: (
+      <div className="space-y-4 text-sm text-muted-foreground">
+        <p className="font-medium text-foreground">Be respectful and constructive</p>
+        <ul className="list-disc pl-4 space-y-2">
+          <li>Treat others with respect. No hate speech, harassment, or personal attacks.</li>
+          <li>Keep discussions relevant to the content being discussed.</li>
+          <li>No spoilers without proper warnings — use spoiler tags when discussing plot points.</li>
+          <li>Do not post spam, advertisements, or self-promotion.</li>
+          <li>Avoid excessive use of caps, emojis, or repetitive messages.</li>
+          <li>Do not share illegal streaming links or pirated content.</li>
+          <li>Report inappropriate content instead of engaging with it.</li>
+          <li>Keep language appropriate — this is a community for all ages.</li>
+        </ul>
+        <p className="text-xs">Violations may result in comment removal or account suspension.</p>
+      </div>
+    ),
+  },
+};
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -57,29 +139,49 @@ export default function Settings() {
     { id: 'about' as const, icon: Info, label: t('settings.about'), desc: t('settings.aboutDesc') },
   ];
 
+  const getSectionTitle = () => {
+    if (activeSection === 'main') return t('settings.title');
+    const infoPage = INFO_PAGES[activeSection];
+    if (infoPage) return infoPage.title;
+    return settingsItems.find(i => i.id === activeSection)?.label || '';
+  };
+
+  const handleBack = () => {
+    if (['terms', 'privacypolicy', 'contact', 'guidelines'].includes(activeSection)) {
+      setActiveSection('about');
+    } else if (activeSection === 'main') {
+      navigate('/profile');
+    } else {
+      setActiveSection('main');
+    }
+  };
+
   const renderSection = () => {
+    // Check if it's an info page
+    const infoPage = INFO_PAGES[activeSection];
+    if (infoPage) {
+      return (
+        <div className="space-y-4">
+          <h3 className="font-semibold text-lg">{infoPage.title}</h3>
+          {infoPage.content}
+        </div>
+      );
+    }
+
     switch (activeSection) {
       case 'language':
         return (
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">{t('settings.language')}</h3>
             <p className="text-sm text-muted-foreground">{t('settings.languageDesc')}</p>
-            
             <div className="space-y-2 mt-4">
               {[
                 { code: 'en' as Language, label: 'English', native: 'English' },
                 { code: 'tl' as Language, label: 'Tagalog', native: 'Tagalog' },
               ].map((lang) => (
-                <button
-                  key={lang.code}
-                  onClick={() => setLanguage(lang.code)}
-                  className={cn(
-                    "w-full p-4 rounded-xl flex items-center justify-between transition-all",
-                    language === lang.code 
-                      ? "bg-primary/20 border-2 border-primary" 
-                      : "glass-card hover:bg-secondary/50"
-                  )}
-                >
+                <button key={lang.code} onClick={() => setLanguage(lang.code)}
+                  className={cn("w-full p-4 rounded-xl flex items-center justify-between transition-all",
+                    language === lang.code ? "bg-primary/20 border-2 border-primary" : "glass-card hover:bg-secondary/50")}>
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{lang.code === 'en' ? '🇺🇸' : '🇵🇭'}</span>
                     <div className="text-left">
@@ -98,34 +200,18 @@ export default function Settings() {
         return (
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">{t('settings.theme')}</h3>
-            <p className="text-sm text-muted-foreground">
-              Choose a mood theme that changes the entire app's color scheme
-            </p>
-            
+            <p className="text-sm text-muted-foreground">Choose a mood theme that changes the entire app's color scheme</p>
             <div className="grid grid-cols-2 gap-3 mt-4">
               {moodOptions.map((mood) => {
                 const moodTheme = moodThemes[mood.id];
                 return (
-                  <button
-                    key={mood.id}
-                    onClick={() => setMood(mood.id)}
-                    className={cn(
-                      "p-4 rounded-xl flex flex-col items-center gap-2 transition-all border-2",
-                      currentMood === mood.id 
-                        ? "border-primary bg-primary/10" 
-                        : "border-transparent glass-card hover:bg-secondary/50"
-                    )}
-                  >
-                    <div 
-                      className="h-10 w-10 rounded-full flex items-center justify-center text-xl"
-                      style={{ backgroundColor: `hsl(${moodTheme.primary} / 0.3)` }}
-                    >
-                      {mood.emoji}
-                    </div>
+                  <button key={mood.id} onClick={() => setMood(mood.id)}
+                    className={cn("p-4 rounded-xl flex flex-col items-center gap-2 transition-all border-2",
+                      currentMood === mood.id ? "border-primary bg-primary/10" : "border-transparent glass-card hover:bg-secondary/50")}>
+                    <div className="h-10 w-10 rounded-full flex items-center justify-center text-xl"
+                      style={{ backgroundColor: `hsl(${moodTheme.primary} / 0.3)` }}>{mood.emoji}</div>
                     <span className="text-xs font-medium text-center">{mood.label}</span>
-                    {currentMood === mood.id && (
-                      <Check className="h-4 w-4 text-primary" />
-                    )}
+                    {currentMood === mood.id && <Check className="h-4 w-4 text-primary" />}
                   </button>
                 );
               })}
@@ -137,17 +223,13 @@ export default function Settings() {
         return (
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">{t('settings.account')}</h3>
-            
             {isAuthenticated ? (
               <div className="space-y-4">
                 <div className="glass-card p-4">
                   <p className="text-sm text-muted-foreground">Signed in as</p>
                   <p className="font-semibold">{user?.email}</p>
-                  {user?.username && (
-                    <p className="text-sm text-primary">@{user.username}</p>
-                  )}
+                  {user?.username && <p className="text-sm text-primary">@{user.username}</p>}
                 </div>
-                
                 <div className="space-y-2">
                   <button className="w-full p-4 glass-card flex items-center justify-between">
                     <span>Edit Profile</span>
@@ -162,21 +244,12 @@ export default function Settings() {
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
                   </button>
                 </div>
-                
-                <Button 
-                  variant="destructive" 
-                  className="w-full"
-                  onClick={logout}
-                >
-                  {t('auth.signOut')}
-                </Button>
+                <Button variant="destructive" className="w-full" onClick={logout}>{t('auth.signOut')}</Button>
               </div>
             ) : (
               <div className="text-center py-8 space-y-4">
                 <p className="text-muted-foreground">Sign in to manage your account</p>
-                <Button onClick={() => navigate('/auth')}>
-                  {t('auth.signIn')}
-                </Button>
+                <Button onClick={() => navigate('/auth')}>{t('auth.signIn')}</Button>
               </div>
             )}
           </div>
@@ -188,24 +261,15 @@ export default function Settings() {
             <h3 className="font-semibold text-lg">{t('settings.privacy')}</h3>
             <div className="space-y-2">
               <button className="w-full p-4 glass-card flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Data Collection</p>
-                  <p className="text-xs text-muted-foreground">Manage how we collect data</p>
-                </div>
+                <div><p className="font-medium">Data Collection</p><p className="text-xs text-muted-foreground">Manage how we collect data</p></div>
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
               </button>
               <button className="w-full p-4 glass-card flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Download My Data</p>
-                  <p className="text-xs text-muted-foreground">Export your information</p>
-                </div>
+                <div><p className="font-medium">Download My Data</p><p className="text-xs text-muted-foreground">Export your information</p></div>
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
               </button>
               <button className="w-full p-4 glass-card flex items-center justify-between text-destructive">
-                <div>
-                  <p className="font-medium">Delete Account</p>
-                  <p className="text-xs opacity-70">Permanently remove your data</p>
-                </div>
+                <div><p className="font-medium">Delete Account</p><p className="text-xs opacity-70">Permanently remove your data</p></div>
                 <ChevronRight className="h-5 w-5" />
               </button>
             </div>
@@ -224,10 +288,7 @@ export default function Settings() {
                 { label: 'AI Recommendations', desc: 'Personalized suggestions' },
               ].map((item) => (
                 <div key={item.label} className="p-4 glass-card flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{item.label}</p>
-                    <p className="text-xs text-muted-foreground">{item.desc}</p>
-                  </div>
+                  <div><p className="font-medium">{item.label}</p><p className="text-xs text-muted-foreground">{item.desc}</p></div>
                   <input type="checkbox" defaultChecked className="h-5 w-5 accent-primary" />
                 </div>
               ))}
@@ -240,27 +301,16 @@ export default function Settings() {
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">{t('settings.accessibility')}</h3>
             <div className="space-y-2">
-              <div className="p-4 glass-card flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Reduce Motion</p>
-                  <p className="text-xs text-muted-foreground">Minimize animations</p>
+              {[
+                { label: 'Reduce Motion', desc: 'Minimize animations' },
+                { label: 'High Contrast', desc: 'Improve readability' },
+                { label: 'Large Text', desc: 'Increase font sizes' },
+              ].map((item) => (
+                <div key={item.label} className="p-4 glass-card flex items-center justify-between">
+                  <div><p className="font-medium">{item.label}</p><p className="text-xs text-muted-foreground">{item.desc}</p></div>
+                  <input type="checkbox" className="h-5 w-5 accent-primary" />
                 </div>
-                <input type="checkbox" className="h-5 w-5 accent-primary" />
-              </div>
-              <div className="p-4 glass-card flex items-center justify-between">
-                <div>
-                  <p className="font-medium">High Contrast</p>
-                  <p className="text-xs text-muted-foreground">Improve readability</p>
-                </div>
-                <input type="checkbox" className="h-5 w-5 accent-primary" />
-              </div>
-              <div className="p-4 glass-card flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Large Text</p>
-                  <p className="text-xs text-muted-foreground">Increase font sizes</p>
-                </div>
-                <input type="checkbox" className="h-5 w-5 accent-primary" />
-              </div>
+              ))}
             </div>
           </div>
         );
@@ -270,27 +320,16 @@ export default function Settings() {
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">{t('settings.watchParty')}</h3>
             <div className="space-y-2">
-              <div className="p-4 glass-card flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Auto-join with Camera</p>
-                  <p className="text-xs text-muted-foreground">Camera on when joining</p>
+              {[
+                { label: 'Auto-join with Camera', desc: 'Camera on when joining', checked: true },
+                { label: 'Auto-join with Mic', desc: 'Microphone on when joining', checked: false },
+                { label: 'Show Reactions', desc: 'Display emoji reactions', checked: true },
+              ].map((item) => (
+                <div key={item.label} className="p-4 glass-card flex items-center justify-between">
+                  <div><p className="font-medium">{item.label}</p><p className="text-xs text-muted-foreground">{item.desc}</p></div>
+                  <input type="checkbox" defaultChecked={item.checked} className="h-5 w-5 accent-primary" />
                 </div>
-                <input type="checkbox" defaultChecked className="h-5 w-5 accent-primary" />
-              </div>
-              <div className="p-4 glass-card flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Auto-join with Mic</p>
-                  <p className="text-xs text-muted-foreground">Microphone on when joining</p>
-                </div>
-                <input type="checkbox" className="h-5 w-5 accent-primary" />
-              </div>
-              <div className="p-4 glass-card flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Show Reactions</p>
-                  <p className="text-xs text-muted-foreground">Display emoji reactions</p>
-                </div>
-                <input type="checkbox" defaultChecked className="h-5 w-5 accent-primary" />
-              </div>
+              ))}
             </div>
           </div>
         );
@@ -307,20 +346,22 @@ export default function Settings() {
                 <h4 className="font-display font-bold text-xl uppercase">Absolute Cinema</h4>
                 <p className="text-sm text-muted-foreground">Version 1.0.0</p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Your AI-powered movie companion. Discover films that match your mood.
-              </p>
+              <p className="text-sm text-muted-foreground">Your AI-powered movie companion. Discover films that match your mood.</p>
             </div>
             <div className="space-y-2">
-              <button className="w-full p-4 glass-card flex items-center justify-between">
+              <button onClick={() => setActiveSection('terms')} className="w-full p-4 glass-card flex items-center justify-between hover:bg-secondary/50 transition-colors">
                 <span>Terms of Service</span>
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
               </button>
-              <button className="w-full p-4 glass-card flex items-center justify-between">
+              <button onClick={() => setActiveSection('privacypolicy')} className="w-full p-4 glass-card flex items-center justify-between hover:bg-secondary/50 transition-colors">
                 <span>Privacy Policy</span>
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
               </button>
-              <button className="w-full p-4 glass-card flex items-center justify-between">
+              <button onClick={() => setActiveSection('guidelines')} className="w-full p-4 glass-card flex items-center justify-between hover:bg-secondary/50 transition-colors">
+                <span>Community Guidelines</span>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </button>
+              <button onClick={() => setActiveSection('contact')} className="w-full p-4 glass-card flex items-center justify-between hover:bg-secondary/50 transition-colors">
                 <span>Contact Support</span>
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
               </button>
@@ -336,19 +377,8 @@ export default function Settings() {
   return (
     <AppLayout>
       <div className="space-y-6 pt-4">
-        {/* Header */}
         <header className="px-4 flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => {
-              if (activeSection === 'main') {
-                navigate('/profile');
-              } else {
-                setActiveSection('main');
-              }
-            }}
-          >
+          <Button variant="ghost" size="icon" onClick={handleBack}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <motion.h1
@@ -356,30 +386,19 @@ export default function Settings() {
             animate={{ opacity: 1, y: 0 }}
             className="text-2xl font-bold"
           >
-            {activeSection === 'main' ? t('settings.title') : settingsItems.find(i => i.id === activeSection)?.label}
+            {getSectionTitle()}
           </motion.h1>
         </header>
 
         <AnimatePresence mode="wait">
           {activeSection === 'main' ? (
-            <motion.section 
-              key="main"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="px-4 space-y-2"
-            >
+            <motion.section key="main" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="px-4 space-y-2">
               {settingsItems.map((item, index) => {
                 const Icon = item.icon;
                 return (
-                  <motion.button
-                    key={item.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    onClick={() => setActiveSection(item.id)}
-                    className="glass-card w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
-                  >
+                  <motion.button key={item.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }} onClick={() => setActiveSection(item.id)}
+                    className="glass-card w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
                         <Icon className="h-5 w-5 text-primary" />
@@ -395,13 +414,7 @@ export default function Settings() {
               })}
             </motion.section>
           ) : (
-            <motion.section 
-              key={activeSection}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="px-4 pb-8"
-            >
+            <motion.section key={activeSection} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="px-4 pb-8">
               {renderSection()}
             </motion.section>
           )}

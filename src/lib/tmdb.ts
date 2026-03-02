@@ -300,6 +300,30 @@ export const getOnTheAirTV = async (page = 1) => {
   );
 };
 
+// Multi-search (movies + TV + people in one call)
+export interface MultiSearchResult {
+  id: number;
+  media_type: 'movie' | 'tv' | 'person';
+  title?: string;
+  name?: string;
+  overview?: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  release_date?: string;
+  first_air_date?: string;
+  vote_average: number;
+  vote_count: number;
+  genre_ids: number[];
+  popularity: number;
+}
+
+export const searchMulti = async (query: string, page = 1) => {
+  return fetchTMDB<{ results: MultiSearchResult[] }>(
+    '/search/multi',
+    { query, page: page.toString() }
+  );
+};
+
 // Helper to deduplicate TV shows
 const deduplicateTV = (shows: TVShow[], existingIds: Set<number>): TVShow[] => {
   return shows.filter(show => {

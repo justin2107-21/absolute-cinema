@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bookmark, Check, Trash2, Star, Clock } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { useWatchlist } from '@/hooks/useWatchlist';
-import { getImageUrl } from '@/lib/tmdb';
+import { useWatchlist, getWatchlistItemPath } from '@/hooks/useWatchlist';
+import type { WatchlistItem, WatchedItem } from '@/hooks/useWatchlist';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,20 +13,19 @@ type Tab = 'watchlist' | 'watched';
 export default function Watchlist() {
   const [activeTab, setActiveTab] = useState<Tab>('watchlist');
   const navigate = useNavigate();
-  const { 
-    watchlist, 
-    watched, 
-    removeFromWatchlist, 
-    markAsWatched, 
-    removeFromWatched 
+  const {
+    watchlist,
+    watched,
+    removeFromWatchlist,
+    markAsWatched,
+    removeFromWatched,
   } = useWatchlist();
 
-  const items = activeTab === 'watchlist' ? watchlist : watched;
+  const items: (WatchlistItem | WatchedItem)[] = activeTab === 'watchlist' ? watchlist : watched;
 
   return (
     <AppLayout>
       <div className="space-y-6 pt-4">
-        {/* Header */}
         <header className="px-4 space-y-4">
           <motion.h1
             initial={{ opacity: 0, y: -10 }}
@@ -36,7 +35,6 @@ export default function Watchlist() {
             My Movies
           </motion.h1>
 
-          {/* Tabs */}
           <div className="flex gap-2">
             <Button
               variant={activeTab === 'watchlist' ? 'default' : 'ghost'}
@@ -57,7 +55,6 @@ export default function Watchlist() {
           </div>
         </header>
 
-        {/* List */}
         <section className="px-4">
           <AnimatePresence mode="popLayout">
             {items.length === 0 ? (
@@ -73,10 +70,7 @@ export default function Watchlist() {
                     <p className="text-sm text-muted-foreground">
                       Start adding movies you want to watch
                     </p>
-                    <Button
-                      className="mt-4"
-                      onClick={() => navigate('/search')}
-                    >
+                    <Button className="mt-4" onClick={() => navigate('/search')}>
                       Browse Movies
                     </Button>
                   </>
@@ -92,14 +86,14 @@ export default function Watchlist() {
               </motion.div>
             ) : (
               <div className="space-y-3">
-                {items.map((movie, index) => {
-                  const posterUrl = getImageUrl(movie.poster_path, 'w200');
-                  const isWatchedMovie = 'watchedAt' in movie;
-                  const rating = movie.vote_average?.toFixed(1);
+                {items.map((item, index) => {
+                  const isWatchedItem = 'watchedAt' in item;
+                  const rating = item.voteAverage?.toFixed(1);
+                  const detailPath = getWatchlistItemPath(item);
 
                   return (
                     <motion.div
-                      key={movie.id}
+                      key={item.id}
                       layout
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -107,54 +101,58 @@ export default function Watchlist() {
                       transition={{ delay: index * 0.05 }}
                       className="glass-card p-3 flex gap-4"
                     >
-                      {/* Poster */}
-                      <div 
+                      <div
                         className="w-20 h-28 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer"
-                        onClick={() => navigate(`/movie/${movie.id}`)}
+                        onClick={() => navigate(detailPath)}
                       >
-                        {posterUrl ? (
+                        {item.posterUrl ? (
                           <img
-                            src={posterUrl}
-                            alt={movie.title}
+                            src={item.posterUrl}
+                            alt={item.title}
                             className="w-full h-full object-cover"
                           />
                         ) : (
                           <div className="w-full h-full bg-secondary flex items-center justify-center">
                             <span className="text-xs text-muted-foreground text-center p-1">
-                              {movie.title}
+                              {item.title}
                             </span>
                           </div>
                         )}
                       </div>
 
-                      {/* Info */}
                       <div className="flex-1 min-w-0 flex flex-col justify-between">
                         <div>
-                          <h3 
+                          <h3
                             className="font-semibold line-clamp-1 cursor-pointer hover:text-primary transition-colors"
-                            onClick={() => navigate(`/movie/${movie.id}`)}
+                            onClick={() => navigate(detailPath)}
                           >
-                            {movie.title}
+                            {item.title}
                           </h3>
                           <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                            <span>{movie.release_date?.split('-')[0]}</span>
-                            <span>•</span>
-                            <div className="flex items-center gap-1">
-                              <Star className="h-3 w-3 fill-accent text-accent" />
-                              <span>{rating}</span>
-                            </div>
+                            <span>{item.releaseDate?.split('-')[0]}</span>
+                            {rating && (
+                              <>
+                                <span>•</span>
+                                <div className="flex items-center gap-1">
+                                  <Star className="h-3 w-3 fill-accent text-accent" />
+                                  <span>{rating}</span>
+                                </div>
+                              </>
+                            )}
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-secondary capitalize">
+                              {item.mediaType}
+                            </span>
                           </div>
-                          {isWatchedMovie && (movie as any).watchedAt && (
+                          {isWatchedItem && (item as WatchedItem).watchedAt && (
                             <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                               <Clock className="h-3 w-3" />
                               <span>
-                                Watched {new Date((movie as any).watchedAt).toLocaleDateString()}
+                                Watched {new Date((item as WatchedItem).watchedAt).toLocaleDateString()}
                               </span>
                             </div>
                           )}
                         </div>
 
-                        {/* Actions */}
                         <div className="flex gap-2 mt-2">
                           {activeTab === 'watchlist' ? (
                             <>
@@ -162,7 +160,7 @@ export default function Watchlist() {
                                 size="sm"
                                 variant="default"
                                 className="flex-1 h-8"
-                                onClick={() => markAsWatched(movie)}
+                                onClick={() => markAsWatched(item)}
                               >
                                 <Check className="h-3 w-3 mr-1" />
                                 Watched
@@ -171,7 +169,7 @@ export default function Watchlist() {
                                 size="sm"
                                 variant="ghost"
                                 className="h-8 w-8 p-0"
-                                onClick={() => removeFromWatchlist(movie.id)}
+                                onClick={() => removeFromWatchlist(item.id)}
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
@@ -181,7 +179,7 @@ export default function Watchlist() {
                               size="sm"
                               variant="ghost"
                               className="h-8"
-                              onClick={() => removeFromWatched(movie.id)}
+                              onClick={() => removeFromWatched(item.id)}
                             >
                               <Trash2 className="h-4 w-4 text-destructive mr-1" />
                               Remove

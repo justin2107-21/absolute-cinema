@@ -23,6 +23,7 @@ export interface AniListMedia {
   type: 'ANIME' | 'MANGA';
   season: string | null;
   seasonYear: number | null;
+  format?: string | null;
 }
 
 export interface AniListDetailMedia {
@@ -130,6 +131,7 @@ const MEDIA_FIELDS = `
   chapters
   status
   type
+  format
   season
   seasonYear
 `;

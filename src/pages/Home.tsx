@@ -11,7 +11,7 @@ import { UnifiedCard } from '@/components/content/UnifiedCard';
 
 import { getDiversifiedHomeContent } from '@/lib/tmdb';
 import { getTrendingAnime, getUpcomingNextSeasonAnime, getAllTimePopularAnime, getTop100Anime } from '@/lib/anilist';
-import { anilistToUnified, getContentPath } from '@/lib/unified-content';
+import { anilistToUnified, getContentPath, getScoreEmoji, formatAnimeFormat, formatSeason } from '@/lib/unified-content';
 import { getPersonalizedRecommendations, getDiverseDiscovery } from '@/lib/recommendations';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { useNavigate } from 'react-router-dom';
@@ -261,20 +261,56 @@ export default function Home() {
               ))}
             </MovieRow>
 
-            {/* Top 100 Anime - Preview with View All */}
+            {/* Top 100 Anime - Ranked List Preview */}
             {top100AnimeUnified.length > 0 && (
-              <div className="space-y-2">
-                <MovieRow title="Top 100 Anime" subtitle="Highest rated of all time" icon={<Trophy className="h-5 w-5" />}>
-                  {top100AnimeUnified.map((content) => (
-                    <UnifiedCard key={content.id} content={content} size="sm" onClick={() => navigate(getContentPath(content))} />
-                  ))}
-                </MovieRow>
-                <div className="px-4">
-                  <Button variant="outline" className="w-full gap-2" onClick={() => navigate('/top-anime')}>
-                    View All Top 100 Anime <ChevronRight className="h-4 w-4" />
-                  </Button>
+              <section className="px-4 space-y-3 mt-2">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-primary" />
+                  <div>
+                    <h2 className="font-semibold">Top 100 Anime</h2>
+                    <p className="text-xs text-muted-foreground">Highest rated of all time</p>
+                  </div>
                 </div>
-              </div>
+                <div className="space-y-2">
+                  {top100AnimeUnified.slice(0, 10).map((content, index) => {
+                    const scorePercent = content.rating ? Math.round(content.rating * 10) : null;
+                    const emoji = getScoreEmoji(scorePercent);
+                    const format = formatAnimeFormat(content.format);
+                    const season = content.season && content.seasonYear
+                      ? `${formatSeason(content.season)} ${content.seasonYear}`
+                      : content.seasonYear?.toString() || '';
+
+                    return (
+                      <motion.div
+                        key={content.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        onClick={() => navigate(getContentPath(content))}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 cursor-pointer hover:bg-secondary/50 transition-colors"
+                      >
+                        <span className="text-sm font-bold text-primary w-7 text-right shrink-0">#{index + 1}</span>
+                        <div className="w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                          {content.poster && <img src={content.poster} alt={content.title} className="w-full h-full object-cover" loading="lazy" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{content.title}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {scorePercent && <span className="font-semibold text-foreground">{scorePercent}%</span>}
+                            <span>{emoji}</span>
+                            <span>•</span>
+                            <span>{format}</span>
+                            {season && <><span>•</span><span>{season}</span></>}
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                <Button variant="outline" className="w-full gap-2" onClick={() => navigate('/top-anime')}>
+                  View All Top 100 Anime <ChevronRight className="h-4 w-4" />
+                </Button>
+              </section>
             )}
           </>
         )}
