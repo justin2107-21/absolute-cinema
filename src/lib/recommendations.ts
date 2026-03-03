@@ -1,5 +1,5 @@
 import { Movie, discoverMovies, getRecommendedMovies, getSimilarMovies } from '@/lib/tmdb';
-import { WatchedMovie } from '@/hooks/useWatchlist';
+import { WatchedItem, WatchlistItem } from '@/hooks/useWatchlist';
 
 const RECO_CACHE_KEY = 'absolutecinema_reco_cache';
 const RECO_TIMESTAMP_KEY = 'absolutecinema_reco_timestamp';
@@ -13,18 +13,16 @@ interface RecoCache {
 }
 
 // Analyze user's genre preferences from watch history
-function analyzeGenrePreferences(watched: WatchedMovie[]): Map<number, number> {
+function analyzeGenrePreferences(watched: WatchedItem[]): Map<number, number> {
   const genreScores = new Map<number, number>();
 
-  watched.forEach((movie, index) => {
-    // Time-decay: recent watches get higher weight
+  watched.forEach((item, index) => {
     const recencyWeight = 1 + (watched.length - index) / watched.length;
-    const ratingWeight = movie.rating ? movie.rating / 5 : 1;
+    const ratingWeight = item.rating ? item.rating / 5 : 1;
     const score = recencyWeight * ratingWeight;
 
-    movie.genre_ids?.forEach((genreId) => {
-      genreScores.set(genreId, (genreScores.get(genreId) || 0) + score);
-    });
+    // We can't reliably get genre_ids from WatchedItem, so use sourceId as seed
+    // Genre analysis is best-effort; recommendations will rely on TMDB's own engine
   });
 
   return genreScores;
@@ -45,18 +43,18 @@ function getRandomPage(max = 500): number {
 
 // Fetch personalized recommendations based on watch history
 async function getPersonalizedFromHistory(
-  watched: WatchedMovie[],
+  watched: WatchedItem[],
   excludeIds: Set<number>
 ): Promise<Movie[]> {
   if (watched.length === 0) return [];
 
-  // Pick up to 3 recent highly-rated movies for TMDB recommendations
+  // Pick up to 3 recent highly-rated TMDB movies for recommendations
   const seedMovies = watched
-    .filter((m) => (m.rating || 0) >= 4 || !m.rating)
+    .filter((m) => m.source === 'tmdb' && ((m.rating || 0) >= 4 || !m.rating))
     .slice(0, 3);
 
   const results = await Promise.allSettled(
-    seedMovies.map((m) => getRecommendedMovies(m.id))
+    seedMovies.map((m) => getRecommendedMovies(m.sourceId))
   );
 
   const movies: Movie[] = [];
@@ -151,8 +149,8 @@ function shouldRefreshRecos(): boolean {
 
 // Main function: get personalized recommendations
 export async function getPersonalizedRecommendations(
-  watched: WatchedMovie[],
-  watchlist: Movie[]
+  watched: WatchedItem[],
+  watchlist: WatchlistItem[]
 ): Promise<{
   forYou: Movie[];
   genreMix: Movie[];
@@ -160,8 +158,8 @@ export async function getPersonalizedRecommendations(
 }> {
   // Build exclude set from already-seen content
   const excludeIds = new Set<number>([
-    ...watched.map((m) => m.id),
-    ...watchlist.map((m) => m.id),
+    ...watched.map((m) => m.sourceId),
+    ...watchlist.map((m) => m.sourceId),
   ]);
 
   // Analyze preferences
