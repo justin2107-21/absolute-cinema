@@ -100,6 +100,41 @@ export type Database = {
           },
         ]
       }
+      chat_nicknames: {
+        Row: {
+          conversation_id: string
+          created_at: string | null
+          id: string
+          nickname: string
+          set_by: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          nickname: string
+          set_by: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          nickname?: string
+          set_by?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_nicknames_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "dm_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comment_likes: {
         Row: {
           comment_id: string
@@ -217,24 +252,36 @@ export type Database = {
           content: string
           conversation_id: string
           created_at: string | null
+          file_name: string | null
+          file_url: string | null
           id: string
+          is_delivered: boolean | null
           is_read: boolean | null
+          message_type: string | null
           sender_id: string
         }
         Insert: {
           content: string
           conversation_id: string
           created_at?: string | null
+          file_name?: string | null
+          file_url?: string | null
           id?: string
+          is_delivered?: boolean | null
           is_read?: boolean | null
+          message_type?: string | null
           sender_id: string
         }
         Update: {
           content?: string
           conversation_id?: string
           created_at?: string | null
+          file_name?: string | null
+          file_url?: string | null
           id?: string
+          is_delivered?: boolean | null
           is_read?: boolean | null
+          message_type?: string | null
           sender_id?: string
         }
         Relationships: [
@@ -273,6 +320,106 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      group_conversations: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          icon_url: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          icon_url?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          icon_url?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string | null
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string | null
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string | null
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "group_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          file_name: string | null
+          file_url: string | null
+          group_id: string
+          id: string
+          message_type: string | null
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          group_id: string
+          id?: string
+          message_type?: string | null
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          group_id?: string
+          id?: string
+          message_type?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "group_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

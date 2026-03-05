@@ -18,7 +18,7 @@ import { formatDistanceToNow } from 'date-fns';
 export default function Profile() {
   const navigate = useNavigate();
   const { watchlist, watched } = useWatchlist();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, avatarUrl, refreshAvatar } = useAuth();
   const { friends, activities } = useFriends();
   const [showSignInModal, setShowSignInModal] = useState(!isAuthenticated);
   const [isEditing, setIsEditing] = useState(false);
@@ -26,6 +26,11 @@ export default function Profile() {
     username: '', bio: '', avatar_url: null,
   });
   const [editData, setEditData] = useState({ username: '', bio: '' });
+
+  // Sync avatar from context
+  useEffect(() => {
+    setProfileData(prev => ({ ...prev, avatar_url: avatarUrl }));
+  }, [avatarUrl]);
 
   // Load profile data from DB
   useEffect(() => {
@@ -76,7 +81,6 @@ export default function Profile() {
       return;
     }
 
-    // Convert to base64 data URL for simplicity (no storage bucket needed)
     const reader = new FileReader();
     reader.onload = async () => {
       const dataUrl = reader.result as string;
@@ -86,6 +90,7 @@ export default function Profile() {
         .eq('user_id', user.id);
       if (error) { toast.error('Failed to upload avatar'); return; }
       setProfileData(prev => ({ ...prev, avatar_url: dataUrl }));
+      await refreshAvatar();
       toast.success('Profile picture updated!');
     };
     reader.readAsDataURL(file);
@@ -128,12 +133,9 @@ export default function Profile() {
         {/* Profile Card */}
         <section className="px-4">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card overflow-hidden">
-            {/* Cover gradient */}
             <div className="h-20 bg-gradient-to-r from-primary/40 to-accent/30" />
-
             <div className="px-4 pb-4 -mt-10">
               <div className="flex items-end gap-3">
-                {/* Avatar */}
                 <div className="relative">
                   <Avatar className="h-20 w-20 border-4 border-card shadow-xl">
                     <AvatarImage src={profileData.avatar_url || undefined} />
@@ -148,23 +150,13 @@ export default function Profile() {
                     </label>
                   )}
                 </div>
-
                 <div className="flex-1 min-w-0 pb-1">
                   {isEditing ? (
                     <div className="space-y-2">
-                      <Input
-                        value={editData.username}
-                        onChange={(e) => setEditData(prev => ({ ...prev, username: e.target.value }))}
-                        placeholder="Display name"
-                        className="h-8 text-sm"
-                      />
-                      <Textarea
-                        value={editData.bio}
-                        onChange={(e) => setEditData(prev => ({ ...prev, bio: e.target.value }))}
-                        placeholder="Tell us about yourself..."
-                        className="min-h-[50px] text-sm"
-                        maxLength={200}
-                      />
+                      <Input value={editData.username} onChange={(e) => setEditData(prev => ({ ...prev, username: e.target.value }))}
+                        placeholder="Display name" className="h-8 text-sm" />
+                      <Textarea value={editData.bio} onChange={(e) => setEditData(prev => ({ ...prev, bio: e.target.value }))}
+                        placeholder="Tell us about yourself..." className="min-h-[50px] text-sm" maxLength={200} />
                       <div className="flex gap-2">
                         <Button size="sm" onClick={handleSaveProfile}>Save</Button>
                         <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
@@ -173,23 +165,18 @@ export default function Profile() {
                   ) : (
                     <>
                       <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-bold truncate">
-                          {isAuthenticated ? profileData.username : 'Guest User'}
-                        </h2>
+                        <h2 className="text-lg font-bold truncate">{isAuthenticated ? profileData.username : 'Guest User'}</h2>
                         {isAuthenticated && (
                           <button onClick={() => setIsEditing(true)} className="text-muted-foreground hover:text-foreground">
                             <Edit3 className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </div>
-                      {profileData.bio && (
-                        <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{profileData.bio}</p>
-                      )}
+                      {profileData.bio && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{profileData.bio}</p>}
                     </>
                   )}
                 </div>
               </div>
-
               {!isAuthenticated && (
                 <Button className="w-full mt-4" onClick={() => setShowSignInModal(true)}>Sign in for full features</Button>
               )}

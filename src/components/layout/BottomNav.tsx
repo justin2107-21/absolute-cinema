@@ -4,19 +4,10 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
 export function BottomNav() {
   const location = useLocation();
-  const { isAuthenticated, user } = useAuth();
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) { setAvatarUrl(null); return; }
-    supabase.from('profiles').select('avatar_url').eq('user_id', user.id).single()
-      .then(({ data }) => { if (data) setAvatarUrl(data.avatar_url); });
-  }, [user]);
+  const { isAuthenticated, user, avatarUrl } = useAuth();
 
   const navItems = [
     { icon: Home, label: 'Home', path: '/' },
@@ -56,19 +47,19 @@ export function BottomNav() {
             );
           })}
 
-          {/* Profile with avatar */}
+          {/* Profile avatar - no label */}
           <NavLink to="/profile" className="relative flex flex-col items-center">
             <motion.div
-              className={cn(
-                "flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors duration-200",
-                profileActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              )}
+              className="flex items-center justify-center px-3 py-2 rounded-xl"
               whileTap={{ scale: 0.95 }}
             >
               <div className="relative">
-                <Avatar className={cn("h-5 w-5", profileActive && "ring-2 ring-primary ring-offset-1 ring-offset-background")}>
+                <Avatar className={cn(
+                  "h-7 w-7 transition-all",
+                  profileActive && "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                )}>
                   <AvatarImage src={avatarUrl || undefined} />
-                  <AvatarFallback className="text-[8px] bg-muted">
+                  <AvatarFallback className="text-[10px] bg-muted">
                     {isAuthenticated ? (user?.username?.charAt(0).toUpperCase() || 'U') : 'G'}
                   </AvatarFallback>
                 </Avatar>
@@ -77,7 +68,6 @@ export function BottomNav() {
                     initial={false} transition={{ type: "spring", stiffness: 500, damping: 30 }} />
                 )}
               </div>
-              <span className={cn("text-[10px] font-medium", profileActive && "text-primary")}>Profile</span>
             </motion.div>
           </NavLink>
         </div>

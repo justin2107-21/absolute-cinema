@@ -24,6 +24,10 @@ export interface DmMessage {
   sender_id: string;
   content: string;
   is_read: boolean;
+  is_delivered: boolean;
+  message_type: string;
+  file_url: string | null;
+  file_name: string | null;
   created_at: string;
 }
 
@@ -50,7 +54,6 @@ export function useChat() {
       .select('user_id, username, avatar_url')
       .in('user_id', otherIds);
 
-    // Get last message and unread count for each
     const enriched = await Promise.all(convos.map(async (c) => {
       const otherId = c.participant1_id === user.id ? c.participant2_id : c.participant1_id;
       const profile = profiles?.find(p => p.user_id === otherId);
@@ -85,7 +88,6 @@ export function useChat() {
   const getOrCreateConversation = useCallback(async (otherUserId: string): Promise<string | null> => {
     if (!user) return null;
 
-    // Check existing
     const { data: existing } = await supabase
       .from('dm_conversations')
       .select('id')
@@ -96,7 +98,6 @@ export function useChat() {
 
     if (existing) return existing.id;
 
-    // Create new
     const { data: newConvo, error } = await supabase
       .from('dm_conversations')
       .insert({ participant1_id: user.id, participant2_id: otherUserId })
@@ -113,21 +114,33 @@ export function useChat() {
       .select('*')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
-      .limit(100);
+      .limit(200);
 
     return (data || []) as DmMessage[];
   }, []);
 
-  const sendMessage = useCallback(async (conversationId: string, content: string) => {
-    if (!user || !content.trim()) return;
+  const sendMessage = useCallback(async (
+    conversationId: string,
+    content: string,
+    messageType: string = 'text',
+    fileUrl?: string,
+    fileName?: string,
+  ) => {
+    if (!user || (!content.trim() && !fileUrl)) return;
 
     const { error } = await supabase
       .from('dm_messages')
-      .insert({ conversation_id: conversationId, sender_id: user.id, content: content.trim() });
+      .insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        content: content.trim() || fileName || 'Attachment',
+        message_type: messageType,
+        file_url: fileUrl || null,
+        file_name: fileName || null,
+      });
 
     if (error) { toast.error('Failed to send message'); return; }
 
-    // Update last_message_at
     await supabase
       .from('dm_conversations')
       .update({ last_message_at: new Date().toISOString() })
@@ -142,6 +155,24 @@ export function useChat() {
       .eq('conversation_id', conversationId)
       .eq('is_read', false)
       .neq('sender_id', user.id);
+  }, [user]);
+
+  const uploadFile = useCallback(async (file: File): Promise<{ url: string; name: string } | null> => {
+    if (!user) return null;
+    const ext = file.name.split('.').pop();
+    const path = `${user.id}/${Date.now()}.${ext}`;
+    
+    const { error } = await supabase.storage
+      .from('chat-attachments')
+      .upload(path, file);
+
+    if (error) { toast.error('Failed to upload file'); return null; }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('chat-attachments')
+      .getPublicUrl(path);
+
+    return { url: publicUrl, name: file.name };
   }, [user]);
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
@@ -159,5 +190,6 @@ export function useChat() {
     loadMessages,
     sendMessage,
     markAsRead,
+    uploadFile,
   };
 }
