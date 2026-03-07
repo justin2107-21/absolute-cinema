@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Send, Users, UserPlus, X } from 'lucide-react';
+import { ArrowLeft, Send, Users, X, Paperclip, Image as ImageIcon, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { GifPicker } from './GifPicker';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useChat } from '@/hooks/useChat';
 import { format, isToday, isYesterday } from 'date-fns';
 import { toast } from 'sonner';
+
+const EMOJI_LIST = ['😀','😂','🥲','😍','🤔','👍','👎','❤️','🔥','💯','🎬','🍿','⭐','😎','🥺','😭','🤩','💀','👀','🙏'];
 
 interface GroupMember {
   user_id: string;
@@ -23,6 +27,8 @@ interface GroupMessage {
   sender_id: string;
   content: string;
   message_type: string;
+  file_url?: string | null;
+  file_name?: string | null;
   created_at: string;
   sender_name?: string;
   sender_avatar?: string | null;
@@ -36,42 +42,46 @@ interface GroupChatWindowProps {
 
 export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowProps) {
   const { user } = useAuth();
+  const { uploadFile } = useChat();
   const [messages, setMessages] = useState<GroupMessage[]>([]);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [showGif, setShowGif] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [profilesCache, setProfilesCache] = useState<Record<string, { username: string; avatar_url: string | null }>>({});
 
   useEffect(() => {
     const loadMembers = async () => {
-      const { data: mems } = await supabase
-        .from('group_members' as any)
-        .select('user_id, role')
-        .eq('group_id', groupId);
+      const { data: mems } = await supabase.from('group_members').select('user_id, role').eq('group_id', groupId);
       if (!mems) return;
-      const userIds = (mems as any[]).map((m: any) => m.user_id);
+      const userIds = mems.map((m) => m.user_id);
       const { data: profiles } = await supabase.from('profiles').select('user_id, username, avatar_url').in('user_id', userIds);
-      setMembers((mems as any[]).map((m: any) => ({
+      const cache: Record<string, { username: string; avatar_url: string | null }> = {};
+      profiles?.forEach(p => { cache[p.user_id] = { username: p.username || 'User', avatar_url: p.avatar_url }; });
+      setProfilesCache(prev => ({ ...prev, ...cache }));
+      setMembers(mems.map(m => ({
         ...m,
-        username: profiles?.find(p => p.user_id === m.user_id)?.username || 'User',
-        avatar_url: profiles?.find(p => p.user_id === m.user_id)?.avatar_url,
+        username: cache[m.user_id]?.username || 'User',
+        avatar_url: cache[m.user_id]?.avatar_url,
       })));
     };
 
     const loadMessages = async () => {
-      const { data } = await supabase
-        .from('group_messages' as any)
-        .select('*')
-        .eq('group_id', groupId)
-        .order('created_at', { ascending: true })
-        .limit(200);
+      const { data } = await supabase.from('group_messages').select('*').eq('group_id', groupId).order('created_at', { ascending: true }).limit(200);
       if (!data) return;
-      const senderIds = [...new Set((data as any[]).map((m: any) => m.sender_id))];
+      const senderIds = [...new Set(data.map(m => m.sender_id))];
       const { data: profiles } = await supabase.from('profiles').select('user_id, username, avatar_url').in('user_id', senderIds);
-      setMessages((data as any[]).map((m: any) => ({
+      const cache: Record<string, { username: string; avatar_url: string | null }> = {};
+      profiles?.forEach(p => { cache[p.user_id] = { username: p.username || 'User', avatar_url: p.avatar_url }; });
+      setProfilesCache(prev => ({ ...prev, ...cache }));
+      setMessages(data.map(m => ({
         ...m,
-        sender_name: profiles?.find(p => p.user_id === m.sender_id)?.username || 'User',
-        sender_avatar: profiles?.find(p => p.user_id === m.sender_id)?.avatar_url,
+        sender_name: cache[m.sender_id]?.username || 'User',
+        sender_avatar: cache[m.sender_id]?.avatar_url,
       })));
     };
 
@@ -83,22 +93,24 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
   useEffect(() => {
     const channel = supabase
       .channel(`group-${groupId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'group_messages',
-        filter: `group_id=eq.${groupId}`,
-      }, async (payload) => {
-        const newMsg = payload.new as any;
-        const { data: profile } = await supabase.from('profiles').select('username, avatar_url').eq('user_id', newMsg.sender_id).single();
-        setMessages(prev => {
-          if (prev.find(m => m.id === newMsg.id)) return prev;
-          return [...prev, { ...newMsg, sender_name: profile?.username || 'User', sender_avatar: profile?.avatar_url }];
-        });
-      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages', filter: `group_id=eq.${groupId}` },
+        async (payload) => {
+          const newMsg = payload.new as any;
+          let senderName = profilesCache[newMsg.sender_id]?.username;
+          let senderAvatar = profilesCache[newMsg.sender_id]?.avatar_url;
+          if (!senderName) {
+            const { data: profile } = await supabase.from('profiles').select('username, avatar_url').eq('user_id', newMsg.sender_id).single();
+            senderName = profile?.username || 'User';
+            senderAvatar = profile?.avatar_url || null;
+          }
+          setMessages(prev => {
+            if (prev.find(m => m.id === newMsg.id)) return prev;
+            return [...prev, { ...newMsg, sender_name: senderName, sender_avatar: senderAvatar }];
+          });
+        })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [groupId]);
+  }, [groupId, profilesCache]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -106,18 +118,37 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
 
   const handleSend = async () => {
     if (!newMessage.trim() || !user || sending) return;
-    setSending(true);
-    await supabase.from('group_messages' as any).insert({
-      group_id: groupId,
-      sender_id: user.id,
-      content: newMessage.trim(),
-    } as any);
+    const content = newMessage;
     setNewMessage('');
+    setSending(true);
+    await supabase.from('group_messages').insert({ group_id: groupId, sender_id: user.id, content: content.trim() });
     setSending(false);
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setSending(true);
+    const result = await uploadFile(file);
+    if (result) {
+      await supabase.from('group_messages').insert({
+        group_id: groupId, sender_id: user.id,
+        content: file.name, message_type: type, file_url: result.url, file_name: result.name,
+      });
+    }
+    setSending(false);
+    e.target.value = '';
+  };
+
+  const handleGifSelect = async (gifUrl: string) => {
+    if (!user) return;
+    await supabase.from('group_messages').insert({
+      group_id: groupId, sender_id: user.id, content: gifUrl, message_type: 'gif', file_url: gifUrl, file_name: 'GIF',
+    });
+  };
+
   const handleRemoveMember = async (userId: string) => {
-    await supabase.from('group_members' as any).delete().eq('group_id', groupId).eq('user_id', userId);
+    await supabase.from('group_members').delete().eq('group_id', groupId).eq('user_id', userId);
     setMembers(prev => prev.filter(m => m.user_id !== userId));
     toast.info('Member removed');
   };
@@ -126,9 +157,9 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
   let lastDate = '';
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 p-3 border-b border-border bg-background/80 backdrop-blur-sm">
+      <div className="flex items-center gap-3 p-3 border-b border-border bg-background/80 backdrop-blur-sm safe-top">
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onBack}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -177,11 +208,11 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
         {messages.map(msg => {
           const isMine = msg.sender_id === user?.id;
           const dateStr = isToday(new Date(msg.created_at)) ? 'Today' : isYesterday(new Date(msg.created_at)) ? 'Yesterday' : format(new Date(msg.created_at), 'MMM d');
-          const showDate = dateStr !== lastDate;
-          if (showDate) lastDate = dateStr;
+          const showDateLabel = dateStr !== lastDate;
+          if (showDateLabel) lastDate = dateStr;
           return (
             <div key={msg.id}>
-              {showDate && (
+              {showDateLabel && (
                 <div className="flex justify-center my-3">
                   <span className="text-[10px] text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">{dateStr}</span>
                 </div>
@@ -196,7 +227,15 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
                 <div className="max-w-[70%]">
                   {!isMine && <p className="text-[10px] text-muted-foreground ml-1 mb-0.5">{msg.sender_name}</p>}
                   <div className={`px-3 py-2 rounded-2xl text-sm ${isMine ? 'bg-primary text-primary-foreground rounded-br-sm' : 'bg-secondary text-foreground rounded-bl-sm'}`}>
-                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                    {(msg.message_type === 'image' || msg.message_type === 'gif') && msg.file_url ? (
+                      <img src={msg.file_url} alt="" className="rounded-lg max-w-full max-h-48 object-cover" />
+                    ) : msg.message_type === 'file' && msg.file_url ? (
+                      <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 underline">
+                        <span>{msg.file_name || 'File'}</span>
+                      </a>
+                    ) : (
+                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                    )}
                   </div>
                   <p className={`text-[9px] text-muted-foreground mt-0.5 ${isMine ? 'text-right' : ''}`}>
                     {format(new Date(msg.created_at), 'h:mm a')}
@@ -208,8 +247,37 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
         })}
       </div>
 
+      {/* Emoji picker */}
+      {showEmoji && (
+        <div className="px-3 py-2 border-t border-border bg-background">
+          <div className="flex flex-wrap gap-2">
+            {EMOJI_LIST.map(e => (
+              <button key={e} onClick={() => { setNewMessage(prev => prev + e); setShowEmoji(false); }}
+                className="text-xl hover:scale-125 transition-transform">{e}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Input */}
-      <div className="p-3 border-t border-border flex gap-2">
+      <div className="p-3 border-t border-border flex items-center gap-1.5 safe-bottom relative">
+        <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'image')} />
+        <input ref={fileInputRef} type="file" className="hidden" onChange={e => handleFileUpload(e, 'file')} />
+        <GifPicker open={showGif} onClose={() => setShowGif(false)} onSelect={handleGifSelect} />
+
+        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => imageInputRef.current?.click()}>
+          <ImageIcon className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => fileInputRef.current?.click()}>
+          <Paperclip className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => { setShowGif(!showGif); setShowEmoji(false); }}>
+          <span className="text-sm">GIF</span>
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => { setShowEmoji(!showEmoji); setShowGif(false); }}>
+          <Smile className="h-4 w-4" />
+        </Button>
+
         <Input value={newMessage} onChange={e => setNewMessage(e.target.value.slice(0, 2000))} placeholder="Message..."
           className="flex-1 h-9 text-sm" onKeyDown={e => e.key === 'Enter' && handleSend()} maxLength={2000} />
         <Button size="icon" className="h-9 w-9" onClick={handleSend} disabled={!newMessage.trim() || sending}>

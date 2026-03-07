@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { GroupChatWindow } from '@/components/chat/GroupChatWindow';
 import { CreateGroupModal } from '@/components/chat/CreateGroupModal';
@@ -13,23 +14,37 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useFriends, type FriendProfile } from '@/hooks/useFriends';
 import { useChat } from '@/hooks/useChat';
 import { formatDistanceToNow } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
 
 type Tab = 'activity' | 'friends' | 'requests';
+
+function FriendsListSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30">
+          <Skeleton className="h-11 w-11 rounded-full" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Friends() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuth();
-  const { friends, pendingRequests, activities, sendFriendRequest, acceptRequest, declineRequest, searchUsers } = useFriends();
-  const { getOrCreateConversation, totalUnread } = useChat();
+  const { friends, pendingRequests, activities, isLoading, sendFriendRequest, acceptRequest, declineRequest, searchUsers } = useFriends();
+  const { getOrCreateConversation } = useChat();
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FriendProfile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
 
-  // Chat states
   const [activeChat, setActiveChat] = useState<{ id: string; user: { user_id: string; username: string | null; avatar_url: string | null } } | null>(() => {
     const chatId = searchParams.get('chat');
     const userId = searchParams.get('user');
@@ -93,9 +108,7 @@ export default function Friends() {
                 <Users className="h-10 w-10 text-muted-foreground" />
               </div>
               <h3 className="text-lg font-semibold">Sign in to connect</h3>
-              <p className="text-sm text-muted-foreground">
-                Sign in to add friends, see what they're watching, and share your movie journey.
-              </p>
+              <p className="text-sm text-muted-foreground">Sign in to add friends, see what they're watching, and share your movie journey.</p>
               <Button onClick={() => navigate('/auth')}>Sign In</Button>
             </div>
           </section>
@@ -104,26 +117,14 @@ export default function Friends() {
     );
   }
 
-  // Active group chat
+  // Active group chat - renders full screen
   if (activeGroup) {
-    return (
-      <AppLayout>
-        <div className="pt-4 px-4">
-          <GroupChatWindow groupId={activeGroup.id} groupName={activeGroup.name} onBack={() => setActiveGroup(null)} />
-        </div>
-      </AppLayout>
-    );
+    return <GroupChatWindow groupId={activeGroup.id} groupName={activeGroup.name} onBack={() => setActiveGroup(null)} />;
   }
 
-  // Active DM chat - clicking a friend opens chat directly
+  // Active DM chat - renders full screen
   if (activeChat) {
-    return (
-      <AppLayout>
-        <div className="pt-4 px-4">
-          <ChatWindow conversationId={activeChat.id} otherUser={activeChat.user} onBack={() => setActiveChat(null)} />
-        </div>
-      </AppLayout>
-    );
+    return <ChatWindow conversationId={activeChat.id} otherUser={activeChat.user} onBack={() => setActiveChat(null)} />;
   }
 
   return (
@@ -138,30 +139,23 @@ export default function Friends() {
           </Button>
         </header>
 
-        {/* Tabs */}
         <div className="px-4 flex gap-2 overflow-x-auto scrollbar-hide">
           {[
             { id: 'friends' as Tab, label: 'Friends', count: friends.length },
             { id: 'activity' as Tab, label: 'Activity', count: 0 },
             { id: 'requests' as Tab, label: 'Requests', count: pendingRequests.length },
           ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
-              }`}
-            >
+              }`}>
               {tab.label}
-              {tab.count > 0 && (
-                <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs bg-background/20">{tab.count}</span>
-              )}
+              {tab.count > 0 && <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs bg-background/20">{tab.count}</span>}
             </button>
           ))}
         </div>
 
         <AnimatePresence mode="wait">
-          {/* Friends List - clicking a friend opens chat */}
           {activeTab === 'friends' && (
             <motion.div key="friends" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 space-y-4 pb-8">
               <div className="relative">
@@ -194,7 +188,9 @@ export default function Friends() {
                 </div>
               )}
 
-              {friends.length === 0 && !searchQuery ? (
+              {isLoading && !searchQuery ? (
+                <FriendsListSkeleton />
+              ) : friends.length === 0 && !searchQuery ? (
                 <div className="text-center py-12">
                   <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
                   <p className="font-medium">No friends yet</p>
@@ -202,11 +198,8 @@ export default function Friends() {
                 </div>
               ) : (
                 !searchQuery && friends.map(friend => (
-                  <button
-                    key={friend.id}
-                    onClick={() => openChat(friend)}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors text-left"
-                  >
+                  <button key={friend.id} onClick={() => openChat(friend)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors text-left">
                     <Avatar className="h-11 w-11">
                       <AvatarImage src={friend.avatar_url || undefined} />
                       <AvatarFallback>{friend.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
@@ -222,10 +215,11 @@ export default function Friends() {
             </motion.div>
           )}
 
-          {/* Activity Feed */}
           {activeTab === 'activity' && (
             <motion.div key="activity" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 space-y-3 pb-8">
-              {activities.length === 0 ? (
+              {isLoading ? (
+                <FriendsListSkeleton />
+              ) : activities.length === 0 ? (
                 <div className="text-center py-12">
                   <Activity className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
                   <p className="font-medium">No activity yet</p>
@@ -233,14 +227,10 @@ export default function Friends() {
                 </div>
               ) : (
                 activities.map((activity, i) => (
-                  <motion.div
-                    key={activity.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
+                  <motion.div key={activity.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.03 }}
                     className="flex gap-3 p-3 rounded-xl bg-secondary/30 cursor-pointer hover:bg-secondary/50 transition-colors"
-                    onClick={() => activity.content_id && navigate(getContentPath(activity))}
-                  >
+                    onClick={() => activity.content_id && navigate(getContentPath(activity))}>
                     <Avatar className="h-10 w-10 flex-shrink-0">
                       <AvatarImage src={activity.avatar_url || undefined} />
                       <AvatarFallback>{activity.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
@@ -265,10 +255,11 @@ export default function Friends() {
             </motion.div>
           )}
 
-          {/* Requests */}
           {activeTab === 'requests' && (
             <motion.div key="requests" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 space-y-3 pb-8">
-              {pendingRequests.length === 0 ? (
+              {isLoading ? (
+                <FriendsListSkeleton />
+              ) : pendingRequests.length === 0 ? (
                 <div className="text-center py-12">
                   <UserPlus className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
                   <p className="font-medium">No pending requests</p>
@@ -288,12 +279,8 @@ export default function Friends() {
                       </p>
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => acceptRequest(request.id)}>
-                        <UserCheck className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => declineRequest(request.id)}>
-                        <UserX className="h-4 w-4" />
-                      </Button>
+                      <Button size="sm" onClick={() => acceptRequest(request.id)}><UserCheck className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => declineRequest(request.id)}><UserX className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 ))
