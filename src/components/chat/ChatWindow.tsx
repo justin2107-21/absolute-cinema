@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChat, type DmMessage } from '@/hooks/useChat';
+import { GifPicker } from './GifPicker';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -44,6 +45,7 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showGif, setShowGif] = useState(false);
   const [nickname, setNickname] = useState<string | null>(null);
   const [editingNickname, setEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
@@ -59,20 +61,18 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
       const msgs = await loadMessages(conversationId);
       setMessages(msgs);
       markAsRead(conversationId);
-
-      // Load nickname
       const { data: nn } = await supabase
-        .from('chat_nicknames' as any)
+        .from('chat_nicknames')
         .select('nickname')
         .eq('conversation_id', conversationId)
         .eq('user_id', otherUser.user_id)
         .single();
-      if (nn) setNickname((nn as any).nickname);
+      if (nn) setNickname(nn.nickname);
     };
     load();
   }, [conversationId, loadMessages, markAsRead, otherUser.user_id]);
 
-  // Realtime subscription
+  // Realtime subscription for new messages AND updates (read receipts)
   useEffect(() => {
     const channel = supabase
       .channel(`dm-${conversationId}`)
@@ -87,25 +87,49 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
           if (prev.find(m => m.id === newMsg.id)) return prev;
           return [...prev, newMsg];
         });
-        markAsRead(conversationId);
+        if (newMsg.sender_id !== user?.id) {
+          markAsRead(conversationId);
+        }
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'dm_messages',
+        filter: `conversation_id=eq.${conversationId}`,
+      }, (payload) => {
+        const updated = payload.new as DmMessage;
+        setMessages(prev => prev.map(m => m.id === updated.id ? { ...m, is_read: updated.is_read, is_delivered: updated.is_delivered } : m));
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [conversationId, markAsRead]);
+  }, [conversationId, markAsRead, user?.id]);
 
   // Auto-scroll
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
   const handleSend = async () => {
     if (!newMessage.trim() || sending) return;
-    setSending(true);
-    await sendMessage(conversationId, newMessage);
+    const content = newMessage;
     setNewMessage('');
+    setSending(true);
+    // Optimistic: add message locally
+    const optimistic: DmMessage = {
+      id: `temp-${Date.now()}`,
+      conversation_id: conversationId,
+      sender_id: user!.id,
+      content,
+      is_read: false,
+      is_delivered: false,
+      message_type: 'text',
+      file_url: null,
+      file_name: null,
+      created_at: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, optimistic]);
+    await sendMessage(conversationId, content);
     setSending(false);
   };
 
@@ -115,17 +139,20 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
     setSending(true);
     const result = await uploadFile(file);
     if (result) {
-      const msgType = type === 'image' ? 'image' : 'file';
-      await sendMessage(conversationId, file.name, msgType, result.url, result.name);
+      await sendMessage(conversationId, file.name, type === 'image' ? 'image' : 'file', result.url, result.name);
     }
     setSending(false);
     e.target.value = '';
   };
 
+  const handleGifSelect = async (gifUrl: string) => {
+    await sendMessage(conversationId, gifUrl, 'gif', gifUrl, 'GIF');
+  };
+
   const handleSaveNickname = async () => {
     if (!user || !nicknameInput.trim()) return;
     const { error } = await supabase
-      .from('chat_nicknames' as any)
+      .from('chat_nicknames')
       .upsert({
         conversation_id: conversationId,
         user_id: otherUser.user_id,
@@ -139,24 +166,27 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
     }
   };
 
-  const mediaMessages = messages.filter(m => m.message_type === 'image');
+  const mediaMessages = messages.filter(m => m.message_type === 'image' || m.message_type === 'gif');
   const fileMessages = messages.filter(m => m.message_type === 'file');
   const links = extractLinks(messages);
 
-  // Group messages by date
   let lastDate = '';
 
+  // Determine seen status for last own message
+  const lastOwnMsgIdx = [...messages].reverse().findIndex(m => m.sender_id === user?.id);
+  const lastOwnMsg = lastOwnMsgIdx >= 0 ? messages[messages.length - 1 - lastOwnMsgIdx] : null;
+
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 p-3 border-b border-border bg-background/80 backdrop-blur-sm">
+      <div className="flex items-center gap-3 p-3 border-b border-border bg-background/80 backdrop-blur-sm safe-top">
         <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={onBack}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <button onClick={() => navigate(`/user/${otherUser.user_id}`)} className="flex items-center gap-2.5 flex-1 min-w-0">
           <Avatar className="h-9 w-9">
             <AvatarImage src={otherUser.avatar_url || undefined} />
-            <AvatarFallback>{(displayName).charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <p className="font-semibold text-sm truncate">{displayName}</p>
@@ -164,7 +194,6 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
           </div>
         </button>
 
-        {/* Chat Settings */}
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
@@ -176,7 +205,6 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
               <SheetTitle className="text-sm">Chat Settings</SheetTitle>
             </SheetHeader>
             <div className="p-4 space-y-4">
-              {/* Profile preview */}
               <div className="flex flex-col items-center gap-2 py-3">
                 <Avatar className="h-16 w-16">
                   <AvatarImage src={otherUser.avatar_url || undefined} />
@@ -185,18 +213,13 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
                 <p className="font-semibold">{displayName}</p>
               </div>
 
-              {/* Actions */}
               <div className="space-y-1">
-                <button
-                  onClick={() => navigate(`/user/${otherUser.user_id}`)}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors text-sm"
-                >
+                <button onClick={() => navigate(`/user/${otherUser.user_id}`)}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors text-sm">
                   <Info className="h-4 w-4 text-muted-foreground" /> View Profile
                 </button>
-                <button
-                  onClick={() => { setNicknameInput(nickname || ''); setEditingNickname(true); }}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors text-sm"
-                >
+                <button onClick={() => { setNicknameInput(nickname || ''); setEditingNickname(true); }}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors text-sm">
                   <Edit3 className="h-4 w-4 text-muted-foreground" /> Change Nickname
                 </button>
               </div>
@@ -205,13 +228,10 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
                 <div className="flex gap-2">
                   <Input value={nicknameInput} onChange={e => setNicknameInput(e.target.value)} placeholder="Enter nickname" className="h-8 text-sm" />
                   <Button size="sm" onClick={handleSaveNickname}>Save</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingNickname(false)}>
-                    <X className="h-3 w-3" />
-                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingNickname(false)}><X className="h-3 w-3" /></Button>
                 </div>
               )}
 
-              {/* Media tabs */}
               <Tabs defaultValue="media" className="w-full">
                 <TabsList className="w-full grid grid-cols-3">
                   <TabsTrigger value="media" className="text-xs">Media</TabsTrigger>
@@ -266,9 +286,7 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-1">
         {messages.length === 0 && (
-          <div className="text-center text-sm text-muted-foreground py-8">
-            Start the conversation! Say hello 👋
-          </div>
+          <div className="text-center text-sm text-muted-foreground py-8">Start the conversation! Say hello 👋</div>
         )}
         {messages.map((msg, idx) => {
           const isMine = msg.sender_id === user?.id;
@@ -276,6 +294,7 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
           const showDate = dateLabel !== lastDate;
           if (showDate) lastDate = dateLabel;
           const time = format(new Date(msg.created_at), 'h:mm a');
+          const isLastOwn = isMine && msg.id === lastOwnMsg?.id;
 
           return (
             <div key={msg.id}>
@@ -301,15 +320,13 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
                       ? 'bg-primary text-primary-foreground rounded-br-sm'
                       : 'bg-secondary text-foreground rounded-bl-sm'
                   }`}>
-                    {msg.message_type === 'image' && msg.file_url ? (
+                    {(msg.message_type === 'image' || msg.message_type === 'gif') && msg.file_url ? (
                       <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
                         <img src={msg.file_url} alt="" className="rounded-lg max-w-full max-h-48 object-cover" />
                       </a>
                     ) : msg.message_type === 'file' && msg.file_url ? (
-                      <a href={msg.file_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 underline">
-                        <FileText className="h-4 w-4" />
-                        {msg.file_name || 'Download file'}
+                      <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 underline">
+                        <FileText className="h-4 w-4" /> {msg.file_name || 'Download file'}
                       </a>
                     ) : (
                       <p className="whitespace-pre-wrap break-words">{msg.content}</p>
@@ -319,7 +336,16 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
                     <span className="text-[9px] text-muted-foreground">{time}</span>
                     {isMine && (
                       msg.is_read ? (
-                        <CheckCheck className="h-3 w-3 text-primary" />
+                        isLastOwn ? (
+                          <Avatar className="h-3.5 w-3.5">
+                            <AvatarImage src={otherUser.avatar_url || undefined} />
+                            <AvatarFallback className="text-[6px]">{displayName.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                        ) : (
+                          <CheckCheck className="h-3 w-3 text-primary" />
+                        )
+                      ) : msg.is_delivered ? (
+                        <CheckCheck className="h-3 w-3 text-muted-foreground" />
                       ) : (
                         <Check className="h-3 w-3 text-muted-foreground" />
                       )
@@ -335,12 +361,8 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
       {/* Emoji picker */}
       <AnimatePresence>
         {showEmoji && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="px-3 py-2 border-t border-border bg-background"
-          >
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+            className="px-3 py-2 border-t border-border bg-background">
             <div className="flex flex-wrap gap-2">
               {EMOJI_LIST.map(e => (
                 <button key={e} onClick={() => { setNewMessage(prev => prev + e); setShowEmoji(false); }}
@@ -352,9 +374,11 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
       </AnimatePresence>
 
       {/* Input bar */}
-      <div className="p-3 border-t border-border bg-background/80 backdrop-blur-sm flex items-center gap-1.5">
+      <div className="p-3 border-t border-border bg-background/80 backdrop-blur-sm flex items-center gap-1.5 safe-bottom relative">
         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'image')} />
         <input ref={fileInputRef} type="file" className="hidden" onChange={e => handleFileUpload(e, 'file')} />
+
+        <GifPicker open={showGif} onClose={() => setShowGif(false)} onSelect={handleGifSelect} />
 
         <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => imageInputRef.current?.click()}>
           <ImageIcon className="h-4 w-4" />
@@ -362,7 +386,10 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
         <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => fileInputRef.current?.click()}>
           <Paperclip className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => setShowEmoji(!showEmoji)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => { setShowGif(!showGif); setShowEmoji(false); }}>
+          <span className="text-sm">GIF</span>
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => { setShowEmoji(!showEmoji); setShowGif(false); }}>
           <Smile className="h-4 w-4" />
         </Button>
 

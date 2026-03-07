@@ -33,33 +33,49 @@ export function CreateGroupModal({ open, onOpenChange, friends, onGroupCreated }
     }
     setCreating(true);
 
-    const { data: group, error } = await supabase
-      .from('group_conversations' as any)
-      .insert({ name: groupName.trim(), created_by: user.id } as any)
-      .select('id')
-      .single();
+    try {
+      // Create group
+      const { data: group, error: groupError } = await supabase
+        .from('group_conversations')
+        .insert({ name: groupName.trim(), created_by: user.id })
+        .select('id')
+        .single();
 
-    if (error || !group) {
+      if (groupError || !group) {
+        console.error('Group creation error:', groupError);
+        toast.error('Failed to create group');
+        setCreating(false);
+        return;
+      }
+
+      const gid = group.id;
+
+      // Add creator as admin first
+      const { error: adminError } = await supabase
+        .from('group_members')
+        .insert({ group_id: gid, user_id: user.id, role: 'admin' });
+
+      if (adminError) {
+        console.error('Admin insert error:', adminError);
+      }
+
+      // Add selected members one by one to avoid batch issues
+      for (const uid of selected) {
+        await supabase
+          .from('group_members')
+          .insert({ group_id: gid, user_id: uid, role: 'member' });
+      }
+
+      setCreating(false);
+      setGroupName('');
+      setSelected([]);
+      onGroupCreated(gid, groupName.trim());
+      toast.success('Group created!');
+    } catch (err) {
+      console.error('Group creation failed:', err);
       toast.error('Failed to create group');
       setCreating(false);
-      return;
     }
-
-    const gid = (group as any).id;
-
-    // Add creator as admin + selected members
-    const members = [
-      { group_id: gid, user_id: user.id, role: 'admin' },
-      ...selected.map(uid => ({ group_id: gid, user_id: uid, role: 'member' })),
-    ];
-
-    await supabase.from('group_members' as any).insert(members as any);
-
-    setCreating(false);
-    setGroupName('');
-    setSelected([]);
-    onGroupCreated(gid, groupName.trim());
-    toast.success('Group created!');
   };
 
   return (

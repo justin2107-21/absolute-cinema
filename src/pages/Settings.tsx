@@ -10,9 +10,9 @@ import { useNavigate } from 'react-router-dom';
 import { useSettings, Language } from '@/contexts/SettingsContext';
 import { useMood, MoodType, moodThemes } from '@/contexts/MoodContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePrivacySettings } from '@/hooks/usePrivacySettings';
 import { cn } from '@/lib/utils';
-
-type SettingsSection = 'main' | 'language' | 'theme' | 'account' | 'privacy' | 'notifications' | 'accessibility' | 'about' | 'terms' | 'privacypolicy' | 'contact' | 'guidelines';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const moodOptions: { id: MoodType; label: string; emoji: string }[] = [
   { id: 'default', label: 'Default Purple', emoji: '💜' },
@@ -121,11 +121,14 @@ const INFO_PAGES: Record<string, { title: string; content: React.ReactNode }> = 
   },
 };
 
+type SettingsSection = 'main' | 'language' | 'theme' | 'account' | 'privacy' | 'notifications' | 'accessibility' | 'about' | 'terms' | 'privacypolicy' | 'contact' | 'guidelines';
+
 export default function Settings() {
   const navigate = useNavigate();
   const { language, setLanguage, t } = useSettings();
   const { currentMood, setMood, theme } = useMood();
   const { isAuthenticated, user, logout } = useAuth();
+  const { settings: privacySettings, update: updatePrivacy } = usePrivacySettings();
   const [activeSection, setActiveSection] = useState<SettingsSection>('main');
 
   const settingsItems = [
@@ -258,11 +261,61 @@ export default function Settings() {
         return (
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">{t('settings.privacy')}</h3>
-            <div className="space-y-2">
-              <button className="w-full p-4 glass-card flex items-center justify-between">
-                <div><p className="font-medium">Data Collection</p><p className="text-xs text-muted-foreground">Manage how we collect data</p></div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              </button>
+            
+            {/* Profile Visibility */}
+            <div className="glass-card p-4 space-y-2">
+              <p className="font-medium">Profile Visibility</p>
+              <p className="text-xs text-muted-foreground">Who can see your profile</p>
+              <Select value={privacySettings.profile_visibility} onValueChange={(v) => updatePrivacy({ profile_visibility: v as any })}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">Public (anyone)</SelectItem>
+                  <SelectItem value="friends">Friends Only</SelectItem>
+                  <SelectItem value="private">Private</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Activity Visibility */}
+            <div className="glass-card p-4 space-y-2">
+              <p className="font-medium">Activity Visibility</p>
+              <p className="text-xs text-muted-foreground">Control who can see your recent activity, ratings, and watched content</p>
+              <Select value={privacySettings.activity_visibility} onValueChange={(v) => updatePrivacy({ activity_visibility: v as any })}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="friends">Allow friends to see activity</SelectItem>
+                  <SelectItem value="hidden">Hide activity</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Chat Permissions */}
+            <div className="glass-card p-4 space-y-2">
+              <p className="font-medium">Chat Permissions</p>
+              <p className="text-xs text-muted-foreground">Who can send you messages</p>
+              <Select value={privacySettings.chat_permissions} onValueChange={(v) => updatePrivacy({ chat_permissions: v as any })}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="everyone">Everyone</SelectItem>
+                  <SelectItem value="friends">Friends Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Friend Request Permissions */}
+            <div className="glass-card p-4 space-y-2">
+              <p className="font-medium">Friend Requests</p>
+              <p className="text-xs text-muted-foreground">Who can send you friend requests</p>
+              <Select value={privacySettings.friend_request_permissions} onValueChange={(v) => updatePrivacy({ friend_request_permissions: v as any })}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="everyone">Everyone</SelectItem>
+                  <SelectItem value="friends">Friends of Friends</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 pt-2">
               <button className="w-full p-4 glass-card flex items-center justify-between">
                 <div><p className="font-medium">Download My Data</p><p className="text-xs text-muted-foreground">Export your information</p></div>
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
