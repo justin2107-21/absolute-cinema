@@ -345,6 +345,14 @@ export default function MoodMatch() {
         identifiedTitle: data.identifiedTitle || undefined,
         identifiedType: data.identifiedType || undefined,
         tmdbMetadata: data.tmdbMetadata || undefined,
+        anilistMetadata: data.anilistMetadata || undefined,
+        character: data.character || undefined,
+        genre: data.genre || undefined,
+        year: data.year || undefined,
+        season: data.season || undefined,
+        episode: data.episode || undefined,
+        episodeTitle: data.episodeTitle || undefined,
+        timestamp: data.timestamp || undefined,
       };
       setChatHistory(prev => [...prev, aiMessage]);
 
