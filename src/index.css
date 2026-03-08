@@ -253,3 +253,32 @@
     }
   }
 }
+
+/* Accessibility: Reduce Motion */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* Accessibility: High Contrast */
+.high-contrast {
+  --muted-foreground: 0 0% 85%;
+  --foreground: 0 0% 100%;
+  --card: 240 15% 6%;
+  --background: 0 0% 0%;
+}
+
+/* Accessibility: Large Text */
+.large-text {
+  font-size: 118%;
+}
+.large-text .text-xs {
+  font-size: 0.85rem;
+}
+.large-text .text-sm {
+  font-size: 1rem;
+}
+
