@@ -484,9 +484,19 @@ export default function MoodMatch() {
   // ─── INLINE RECS RENDERER ───
   const renderInlineRecs = (recs: MoodRecommendations) => (
     <div className="space-y-5 mt-3">
+      {recs.anime && recs.anime.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-semibold flex items-center gap-1.5 text-xs text-primary"><Play className="h-3.5 w-3.5" /> Anime</h4>
+          <div className="grid grid-cols-3 gap-2">
+            {recs.anime.slice(0, 6).map(a => (
+              <AnimeCard key={a.id} anime={a} size="sm" onClick={() => handleAnimeClick(a)} />
+            ))}
+          </div>
+        </div>
+      )}
       {recs.popular.length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-semibold flex items-center gap-1.5 text-xs text-primary"><Star className="h-3.5 w-3.5" /> Popular</h4>
+          <h4 className="font-semibold flex items-center gap-1.5 text-xs text-primary"><Star className="h-3.5 w-3.5" /> {recs.trending.length === 0 && recs.underrated.length === 0 ? 'Recommendations' : 'Popular'}</h4>
           <div className="grid grid-cols-3 gap-2">
             {recs.popular.slice(0, 6).map(movie => (
               <MovieCard key={movie.id} movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
