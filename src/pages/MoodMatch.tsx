@@ -196,12 +196,12 @@ export default function MoodMatch() {
   const saveMessage = async (message: LuminaMessage, convId: string) => {
     if (!user) return;
     try {
-      // Store extra metadata (imageUrl, identifiedTitle, identifiedType) in the recommendations JSON
       const metadata: Record<string, any> = {};
       if (message.preferences) Object.assign(metadata, { preferences: message.preferences });
       if (message.imageUrl) metadata.imageUrl = message.imageUrl;
       if (message.identifiedTitle) metadata.identifiedTitle = message.identifiedTitle;
       if (message.identifiedType) metadata.identifiedType = message.identifiedType;
+      if (message.tmdbMetadata) metadata.tmdbMetadata = message.tmdbMetadata;
 
       await supabase.from('chat_messages').insert({
         conversation_id: convId,
