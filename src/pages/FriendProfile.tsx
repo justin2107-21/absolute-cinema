@@ -11,6 +11,7 @@ import { useFriends } from '@/hooks/useFriends';
 import { useChat } from '@/hooks/useChat';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { parseAnimatedBanner } from '@/components/profile/BannerSelector';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ interface UserProfile {
   username: string | null;
   avatar_url: string | null;
   bio: string | null;
+  banner_url: string | null;
 }
 
 interface UserActivity {
