@@ -105,6 +105,10 @@ export const getMovieDetails = async (movieId: number) => {
   return fetchTMDB<MovieDetails>(`/movie/${movieId}`, { append_to_response: 'videos' });
 };
 
+export const getTVDetails = async (tvId: number) => {
+  return fetchTMDB<MovieDetails>(`/tv/${tvId}`, { append_to_response: 'videos' });
+};
+
 export const getMoviesByGenre = async (genreId: number, page = 1, sortBy = 'popularity.desc') => {
   return fetchTMDB<{ results: Movie[]; page: number; total_pages: number }>(
     '/discover/movie',
