@@ -7,7 +7,9 @@ const corsHeaders = {
 
 const TMDB_API_KEY = "df0c550327ce5a364aac2cb1e2420f9d";
 const TMDB_BASE = "https://api.themoviedb.org/3";
+const ANILIST_API = "https://graphql.anilist.co";
 
+// ─── TYPES ───
 interface SeasonInfo {
   season_number: number;
   episode_count: number;
@@ -35,16 +37,90 @@ interface TmdbMetadata {
   totalSeasons: number;
   totalEpisodes: number;
   seasons: SeasonInfo[];
-  episodes: EpisodeInfo[]; // first season episodes as sample
+  episodes: EpisodeInfo[];
   status: string;
   firstAirDate: string | null;
   mediaType: "movie" | "tv";
   runtime?: number;
 }
 
+interface AniListMetadata {
+  anilistId: number;
+  title: string;
+  titleEnglish: string | null;
+  overview: string;
+  posterPath: string | null;
+  bannerPath: string | null;
+  voteAverage: number;
+  totalEpisodes: number | null;
+  status: string;
+  year: number | null;
+  genres: string[];
+  format: string | null;
+}
+
+interface CharacterInfo {
+  name: string;
+  role?: string;
+  imageUrl?: string;
+}
+
+// ─── FETCH ANILIST METADATA ───
+async function fetchAniListMetadata(title: string): Promise<AniListMetadata | null> {
+  try {
+    const query = `
+      query ($search: String) {
+        Media(search: $search, type: ANIME, sort: SEARCH_MATCH) {
+          id
+          title { romaji english native }
+          description(asHtml: false)
+          coverImage { extraLarge large }
+          bannerImage
+          averageScore
+          episodes
+          status
+          seasonYear
+          genres
+          format
+        }
+      }
+    `;
+    
+    const response = await fetch(ANILIST_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, variables: { search: title } }),
+    });
+    
+    if (!response.ok) return null;
+    const data = await response.json();
+    const media = data?.data?.Media;
+    if (!media) return null;
+    
+    return {
+      anilistId: media.id,
+      title: media.title?.english || media.title?.romaji || title,
+      titleEnglish: media.title?.english || null,
+      overview: media.description?.replace(/<[^>]*>/g, '') || "",
+      posterPath: media.coverImage?.extraLarge || media.coverImage?.large || null,
+      bannerPath: media.bannerImage || null,
+      voteAverage: (media.averageScore || 0) / 10,
+      totalEpisodes: media.episodes || null,
+      status: media.status || "Unknown",
+      year: media.seasonYear || null,
+      genres: media.genres || [],
+      format: media.format || null,
+    };
+  } catch (err) {
+    console.error("AniList fetch error:", err);
+    return null;
+  }
+}
+
+// ─── FETCH TMDB METADATA ───
 async function fetchTmdbMetadata(title: string, type: string): Promise<TmdbMetadata | null> {
   try {
-    const mediaType = type === "anime" || type === "tv" ? "tv" : "movie";
+    const mediaType = type === "tv" ? "tv" : "movie";
     const searchUrl = `${TMDB_BASE}/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}`;
     const searchRes = await fetch(searchUrl);
     if (!searchRes.ok) return null;
@@ -67,7 +143,6 @@ async function fetchTmdbMetadata(title: string, type: string): Promise<TmdbMetad
           air_date: s.air_date,
         }));
 
-      // Fetch episodes for the latest season
       let episodes: EpisodeInfo[] = [];
       const latestSeasonNum = seasons.length > 0 ? seasons[seasons.length - 1].season_number : 1;
       try {
@@ -157,31 +232,41 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are Lumina AI, an entertainment expert. When shown an image, identify the movie, TV show, or anime.
+            content: `You are Lumina AI, an entertainment expert specializing in movies, TV shows, anime, and manga. When shown an image, identify the content and provide detailed analysis.
 
-CRITICAL RULES:
-- No markdown. No asterisks, bold, headings, or underscores. Plain text only.
-- Vary your opening phrase each time. Options: "This appears to be from...", "This looks like a scene from...", "I'm fairly certain this is from...", "This frame seems to be from...", "I recognize this as..."
+CRITICAL OUTPUT FORMAT - You MUST output a structured block at the END of your response:
+[METADATA]
+TITLE: <title>
+TYPE: <movie|tv|anime|manga>
+CHARACTER: <character name if identifiable, or "Unknown">
+GENRE: <comma-separated genres>
+YEAR: <year or "Unknown">
+SEASON: <season number or "Unknown">
+EPISODE: <episode number or "Unknown">
+EPISODE_TITLE: <episode title or "Unknown">
+TIMESTAMP: <approximate timestamp like "12:34" or "Unknown">
+[/METADATA]
 
-Your response MUST include:
-1. The title
-2. If it's a TV show or anime, try to identify the SPECIFIC EPISODE and SCENE. Say something like "This scene appears to be from Season X, Episode Y" if you can tell. If unsure, say "I believe this is from an early/mid/late episode of Season X."
-3. Genre and year
-4. Brief description of what's happening in the scene
+INSTRUCTIONS:
+1. Identify the title of the movie, show, or anime
+2. If characters are visible, identify them by name (e.g., "Saitama", "Eleven", "Walter White")
+3. For TV/anime, try to identify the specific season and episode based on visual cues (costumes, settings, events)
+4. Estimate a timestamp if the scene is recognizable
+5. List the genre(s)
+6. Provide the year of release
 
-If unsure: "This might be from [title], but I'm not certain." and suggest alternatives.
+RESPONSE STYLE:
+- Be conversational but informative
+- Vary your opening: "This appears to be from...", "I recognize this as...", "This looks like a scene from..."
+- No markdown formatting (no **, no ##, no _)
+- Plain text only
 
-If not from entertainment media: describe what you see.
-
-IMPORTANT: At the end, on a new line, output:
-[IDENTIFIED:title_here:type_here]
-where type is: movie, tv, or anime
-Only include if confident. For anime, always use type "anime" not "tv".`,
+If you cannot identify the content, describe what you see and suggest possibilities.`,
           },
           {
             role: "user",
             content: [
-              { type: "text", text: message || "What movie, anime, TV show, or manga is this from?" },
+              { type: "text", text: message || "What movie, anime, TV show, or manga is this from? Please identify any characters visible." },
               { type: "image_url", image_url: { url: imageUrl } },
             ],
           },
@@ -210,14 +295,52 @@ Only include if confident. For anime, always use type "anime" not "tv".`,
     const data = await response.json();
     let aiMessage = data.choices[0]?.message?.content || "I couldn't analyze this image. Please try again.";
 
-    // Extract identification metadata
+    // Parse structured metadata from response
     let identifiedTitle: string | null = null;
     let identifiedType: string | null = null;
-    const metaMatch = aiMessage.match(/\[IDENTIFIED:(.+?):(.+?)\]/);
-    if (metaMatch) {
-      identifiedTitle = metaMatch[1].trim();
-      identifiedType = metaMatch[2].trim();
-      aiMessage = aiMessage.replace(/\[IDENTIFIED:.+?\]/g, "").trim();
+    let character: string | null = null;
+    let genre: string | null = null;
+    let year: string | null = null;
+    let season: string | null = null;
+    let episode: string | null = null;
+    let episodeTitle: string | null = null;
+    let timestamp: string | null = null;
+
+    const metadataMatch = aiMessage.match(/\[METADATA\]([\s\S]*?)\[\/METADATA\]/);
+    if (metadataMatch) {
+      const metaBlock = metadataMatch[1];
+      const titleMatch = metaBlock.match(/TITLE:\s*(.+)/i);
+      const typeMatch = metaBlock.match(/TYPE:\s*(.+)/i);
+      const charMatch = metaBlock.match(/CHARACTER:\s*(.+)/i);
+      const genreMatch = metaBlock.match(/GENRE:\s*(.+)/i);
+      const yearMatch = metaBlock.match(/YEAR:\s*(.+)/i);
+      const seasonMatch = metaBlock.match(/SEASON:\s*(.+)/i);
+      const episodeMatch = metaBlock.match(/EPISODE:\s*(\d+)/i);
+      const epTitleMatch = metaBlock.match(/EPISODE_TITLE:\s*(.+)/i);
+      const timestampMatch = metaBlock.match(/TIMESTAMP:\s*(.+)/i);
+
+      if (titleMatch) identifiedTitle = titleMatch[1].trim();
+      if (typeMatch) identifiedType = typeMatch[1].trim().toLowerCase();
+      if (charMatch && charMatch[1].trim().toLowerCase() !== "unknown") character = charMatch[1].trim();
+      if (genreMatch && genreMatch[1].trim().toLowerCase() !== "unknown") genre = genreMatch[1].trim();
+      if (yearMatch && yearMatch[1].trim().toLowerCase() !== "unknown") year = yearMatch[1].trim();
+      if (seasonMatch && seasonMatch[1].trim().toLowerCase() !== "unknown") season = seasonMatch[1].trim();
+      if (episodeMatch) episode = episodeMatch[1].trim();
+      if (epTitleMatch && epTitleMatch[1].trim().toLowerCase() !== "unknown") episodeTitle = epTitleMatch[1].trim();
+      if (timestampMatch && timestampMatch[1].trim().toLowerCase() !== "unknown") timestamp = timestampMatch[1].trim();
+
+      // Remove metadata block from visible message
+      aiMessage = aiMessage.replace(/\[METADATA\][\s\S]*?\[\/METADATA\]/g, "").trim();
+    }
+
+    // Legacy fallback for old format
+    if (!identifiedTitle) {
+      const legacyMatch = aiMessage.match(/\[IDENTIFIED:(.+?):(.+?)\]/);
+      if (legacyMatch) {
+        identifiedTitle = legacyMatch[1].trim();
+        identifiedType = legacyMatch[2].trim();
+        aiMessage = aiMessage.replace(/\[IDENTIFIED:.+?\]/g, "").trim();
+      }
     }
 
     // Sanitize markdown
@@ -225,10 +348,18 @@ Only include if confident. For anime, always use type "anime" not "tv".`,
     aiMessage = aiMessage.replace(/#{1,6}\s*/g, "");
     aiMessage = aiMessage.replace(/_{1,2}([^_]+)_{1,2}/g, "$1");
 
-    // Fetch live TMDB metadata if we identified something
+    // Fetch metadata from correct API based on type
     let tmdbMetadata: TmdbMetadata | null = null;
+    let anilistMetadata: AniListMetadata | null = null;
+
     if (identifiedTitle && identifiedType) {
-      tmdbMetadata = await fetchTmdbMetadata(identifiedTitle, identifiedType);
+      if (identifiedType === "anime" || identifiedType === "manga") {
+        // Use AniList for anime/manga
+        anilistMetadata = await fetchAniListMetadata(identifiedTitle);
+      } else {
+        // Use TMDB for movies/TV
+        tmdbMetadata = await fetchTmdbMetadata(identifiedTitle, identifiedType);
+      }
     }
 
     return new Response(
@@ -236,7 +367,15 @@ Only include if confident. For anime, always use type "anime" not "tv".`,
         message: aiMessage,
         identifiedTitle,
         identifiedType,
+        character,
+        genre,
+        year,
+        season,
+        episode,
+        episodeTitle,
+        timestamp,
         tmdbMetadata,
+        anilistMetadata,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

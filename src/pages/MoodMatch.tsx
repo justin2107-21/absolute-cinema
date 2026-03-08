@@ -93,6 +93,22 @@ interface TmdbMetadata {
   runtime?: number;
 }
 
+// ─── ANILIST METADATA TYPE ───
+interface AniListMetadata {
+  anilistId: number;
+  title: string;
+  titleEnglish: string | null;
+  overview: string;
+  posterPath: string | null;
+  bannerPath: string | null;
+  voteAverage: number;
+  totalEpisodes: number | null;
+  status: string;
+  year: number | null;
+  genres: string[];
+  format: string | null;
+}
+
 // ─── LUMINA AI CHAT MESSAGE TYPE ───
 interface LuminaMessage {
   id?: string;
@@ -106,9 +122,17 @@ interface LuminaMessage {
   imageUrl?: string;
   isEditing?: boolean;
   identifiedTitle?: string;
-  identifiedType?: 'movie' | 'tv' | 'anime';
+  identifiedType?: 'movie' | 'tv' | 'anime' | 'manga';
   tmdbMetadata?: TmdbMetadata | null;
-  recsVisible?: boolean; // Whether recommendations are currently shown
+  anilistMetadata?: AniListMetadata | null;
+  character?: string | null;
+  genre?: string | null;
+  year?: string | null;
+  season?: string | null;
+  episode?: string | null;
+  episodeTitle?: string | null;
+  timestamp?: string | null;
+  recsVisible?: boolean;
 }
 
 export default function MoodMatch() {
@@ -185,6 +209,14 @@ export default function MoodMatch() {
               identifiedTitle: meta.identifiedTitle || undefined,
               identifiedType: meta.identifiedType || undefined,
               tmdbMetadata: meta.tmdbMetadata || undefined,
+              anilistMetadata: meta.anilistMetadata || undefined,
+              character: meta.character || undefined,
+              genre: meta.genre || undefined,
+              year: meta.year || undefined,
+              season: meta.season || undefined,
+              episode: meta.episode || undefined,
+              episodeTitle: meta.episodeTitle || undefined,
+              timestamp: meta.timestamp || undefined,
             };
           }));
         }
@@ -203,6 +235,14 @@ export default function MoodMatch() {
       if (message.identifiedTitle) metadata.identifiedTitle = message.identifiedTitle;
       if (message.identifiedType) metadata.identifiedType = message.identifiedType;
       if (message.tmdbMetadata) metadata.tmdbMetadata = message.tmdbMetadata;
+      if (message.anilistMetadata) metadata.anilistMetadata = message.anilistMetadata;
+      if (message.character) metadata.character = message.character;
+      if (message.genre) metadata.genre = message.genre;
+      if (message.year) metadata.year = message.year;
+      if (message.season) metadata.season = message.season;
+      if (message.episode) metadata.episode = message.episode;
+      if (message.episodeTitle) metadata.episodeTitle = message.episodeTitle;
+      if (message.timestamp) metadata.timestamp = message.timestamp;
 
       await supabase.from('chat_messages').insert({
         conversation_id: convId,
@@ -321,6 +361,14 @@ export default function MoodMatch() {
         identifiedTitle: data.identifiedTitle || undefined,
         identifiedType: data.identifiedType || undefined,
         tmdbMetadata: data.tmdbMetadata || undefined,
+        anilistMetadata: data.anilistMetadata || undefined,
+        character: data.character || undefined,
+        genre: data.genre || undefined,
+        year: data.year || undefined,
+        season: data.season || undefined,
+        episode: data.episode || undefined,
+        episodeTitle: data.episodeTitle || undefined,
+        timestamp: data.timestamp || undefined,
       };
       setChatHistory(prev => [...prev, aiMessage]);
 
@@ -549,7 +597,7 @@ export default function MoodMatch() {
     </div>
   );
 
-  // ─── COMPACT METADATA RENDERER (no full episode guide) ───
+  // ─── COMPACT METADATA RENDERER ───
   const renderTmdbMetadata = (meta: TmdbMetadata) => (
     <div className="mt-3 text-sm">
       <div className="bg-background/50 rounded-xl p-3 space-y-1.5">
@@ -568,13 +616,90 @@ export default function MoodMatch() {
     </div>
   );
 
+  // ─── ANILIST METADATA RENDERER ───
+  const renderAniListMetadata = (meta: AniListMetadata) => (
+    <div className="mt-3 text-sm">
+      <div className="bg-background/50 rounded-xl p-3 space-y-1.5">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+          <span>⭐ {meta.voteAverage.toFixed(1)}</span>
+          {meta.totalEpisodes && <span>{meta.totalEpisodes} Episodes</span>}
+          {meta.year && <span>{meta.year}</span>}
+          {meta.format && <span>{meta.format}</span>}
+          <span>{meta.status}</span>
+        </div>
+        {meta.genres.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {meta.genres.slice(0, 4).map((g) => (
+              <span key={g} className="text-[10px] px-1.5 py-0.5 rounded bg-secondary">{g}</span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // ─── SCENE INFO RENDERER ───
+  const renderSceneInfo = (msg: LuminaMessage) => {
+    const hasSceneInfo = msg.character || msg.season || msg.episode || msg.timestamp;
+    if (!hasSceneInfo) return null;
+
+    return (
+      <div className="mt-3 bg-background/50 rounded-xl p-3 space-y-2 text-sm">
+        {msg.character && (
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs">Character:</span>
+            <span className="font-medium">{msg.character}</span>
+          </div>
+        )}
+        {msg.genre && (
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs">Genre:</span>
+            <span className="text-xs">{msg.genre}</span>
+          </div>
+        )}
+        {msg.year && (
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs">Year:</span>
+            <span className="text-xs">{msg.year}</span>
+          </div>
+        )}
+        {(msg.season || msg.episode) && (
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs">Episode:</span>
+            <span className="text-xs">
+              {msg.season && `Season ${msg.season}`}
+              {msg.season && msg.episode && ' – '}
+              {msg.episode && `Episode ${msg.episode}`}
+              {msg.episodeTitle && ` "${msg.episodeTitle}"`}
+            </span>
+          </div>
+        )}
+        {msg.timestamp && (
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs">Timestamp:</span>
+            <span className="text-xs">~{msg.timestamp}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ─── ACTION BUTTONS FOR IDENTIFIED CONTENT ───
   const renderIdentifiedActions = (msg: LuminaMessage) => {
     if (!msg.identifiedTitle) return null;
+
+    const isAnime = msg.identifiedType === 'anime' || msg.identifiedType === 'manga';
+    const hasAniList = !!msg.anilistMetadata;
+    const hasTmdb = !!msg.tmdbMetadata;
+
     return (
       <div className="space-y-0">
-        {/* TMDB metadata cards */}
-        {msg.tmdbMetadata && renderTmdbMetadata(msg.tmdbMetadata)}
+        {/* Scene info (character, episode, timestamp) */}
+        {renderSceneInfo(msg)}
+
+        {/* Metadata cards */}
+        {hasTmdb && !hasAniList && renderTmdbMetadata(msg.tmdbMetadata!)}
+        {hasAniList && renderAniListMetadata(msg.anilistMetadata!)}
 
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2 mt-3">
@@ -583,23 +708,23 @@ export default function MoodMatch() {
             variant="outline"
             className="gap-1.5 text-xs"
             onClick={() => {
-              const query = `recommend ${msg.identifiedType === 'anime' ? 'anime' : 'movies'} similar to ${msg.identifiedTitle}`;
+              const query = `recommend ${isAnime ? 'anime' : 'movies'} similar to ${msg.identifiedTitle}`;
               setChatInput(query);
               setTimeout(() => handleChatSubmit(), 100);
             }}
           >
-            <Play className="h-3 w-3" /> Similar {msg.identifiedType === 'anime' ? 'Anime' : 'Titles'}
+            <Play className="h-3 w-3" /> Similar {isAnime ? 'Anime' : 'Titles'}
           </Button>
           <Button
             size="sm"
             variant="outline"
             className="gap-1.5 text-xs"
             onClick={() => {
-              if (msg.identifiedType === 'anime' && msg.tmdbMetadata) {
-                // Search AniList page for anime
-                navigate(`/search?q=${encodeURIComponent(msg.identifiedTitle!)}`);
-              } else if (msg.tmdbMetadata) {
-                navigate(`/${msg.tmdbMetadata.mediaType === 'tv' ? 'tv' : 'movie'}/${msg.tmdbMetadata.tmdbId}`);
+              if (hasAniList) {
+                // Navigate to anime detail page using AniList ID
+                navigate(`/anime/${msg.anilistMetadata!.anilistId}`);
+              } else if (hasTmdb) {
+                navigate(`/${msg.tmdbMetadata!.mediaType === 'tv' ? 'tv' : 'movie'}/${msg.tmdbMetadata!.tmdbId}`);
               } else {
                 navigate(`/search?q=${encodeURIComponent(msg.identifiedTitle!)}`);
               }
@@ -607,7 +732,7 @@ export default function MoodMatch() {
           >
             <Search className="h-3 w-3" /> View Details
           </Button>
-          {msg.tmdbMetadata && msg.tmdbMetadata.mediaType === 'tv' && (
+          {hasTmdb && msg.tmdbMetadata!.mediaType === 'tv' && (
             <Button
               size="sm"
               variant="outline"
@@ -625,35 +750,39 @@ export default function MoodMatch() {
             variant="outline"
             className="gap-1.5 text-xs"
             onClick={() => {
-              if (msg.identifiedType === 'anime' && msg.tmdbMetadata) {
-                // For anime, add as AniList source so it navigates correctly
+              if (hasAniList) {
+                // Use AniList metadata for anime watchlist - CORRECT API!
+                const meta = msg.anilistMetadata!;
                 addToWatchlist({
-                  id: `anilist-anime-${msg.tmdbMetadata.tmdbId}`,
+                  id: `anilist-anime-${meta.anilistId}`,
                   source: 'anilist',
                   mediaType: 'anime',
-                  sourceId: msg.tmdbMetadata.tmdbId,
-                  title: msg.tmdbMetadata.title,
-                  posterUrl: msg.tmdbMetadata.posterPath
-                    ? `https://image.tmdb.org/t/p/w500${msg.tmdbMetadata.posterPath}`
-                    : null,
-                  voteAverage: msg.tmdbMetadata.voteAverage,
-                } as any);
-                toast.success(`Added "${msg.tmdbMetadata.title}" to watchlist!`);
-              } else if (msg.tmdbMetadata) {
+                  sourceId: meta.anilistId,
+                  title: meta.title,
+                  posterUrl: meta.posterPath,
+                  voteAverage: meta.voteAverage,
+                  releaseDate: meta.year ? `${meta.year}-01-01` : undefined,
+                } as WatchlistItem);
+                toast.success(`Added "${meta.title}" to watchlist!`);
+              } else if (hasTmdb) {
+                // Use TMDB metadata for movies/TV
+                const meta = msg.tmdbMetadata!;
                 const item: WatchlistItem = {
-                  id: `tmdb-${msg.tmdbMetadata.mediaType}-${msg.tmdbMetadata.tmdbId}`,
+                  id: `tmdb-${meta.mediaType}-${meta.tmdbId}`,
                   source: 'tmdb',
-                  mediaType: msg.tmdbMetadata.mediaType === 'tv' ? 'tv' : 'movie',
-                  sourceId: msg.tmdbMetadata.tmdbId,
-                  title: msg.tmdbMetadata.title,
-                  posterUrl: msg.tmdbMetadata.posterPath
-                    ? `https://image.tmdb.org/t/p/w500${msg.tmdbMetadata.posterPath}`
+                  mediaType: meta.mediaType === 'tv' ? 'tv' : 'movie',
+                  sourceId: meta.tmdbId,
+                  title: meta.title,
+                  posterUrl: meta.posterPath
+                    ? `https://image.tmdb.org/t/p/w500${meta.posterPath}`
                     : null,
-                  voteAverage: msg.tmdbMetadata.voteAverage,
-                  releaseDate: msg.tmdbMetadata.firstAirDate || undefined,
+                  voteAverage: meta.voteAverage,
+                  releaseDate: meta.firstAirDate || undefined,
                 };
                 addToWatchlist(item);
-                toast.success(`Added "${msg.tmdbMetadata.title}" to watchlist!`);
+                toast.success(`Added "${meta.title}" to watchlist!`);
+              } else {
+                toast.error('Could not add to watchlist - missing metadata');
               }
             }}
           >
