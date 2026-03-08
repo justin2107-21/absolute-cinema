@@ -532,31 +532,167 @@ export default function MoodMatch() {
     </div>
   );
 
+  // ─── TMDB METADATA & EPISODE GUIDE RENDERER ───
+  const renderTmdbMetadata = (meta: TmdbMetadata) => (
+    <div className="mt-3 space-y-3 text-sm">
+      {/* Season overview */}
+      {meta.mediaType === 'tv' && meta.totalSeasons > 0 && (
+        <div className="bg-background/50 rounded-xl p-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+            <Film className="h-3.5 w-3.5" />
+            Live Metadata
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="bg-muted/50 rounded-lg p-2">
+              <p className="text-muted-foreground">Seasons</p>
+              <p className="font-bold text-lg">{meta.totalSeasons}</p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-2">
+              <p className="text-muted-foreground">Total Episodes</p>
+              <p className="font-bold text-lg">{meta.totalEpisodes}</p>
+            </div>
+          </div>
+          <div className="space-y-1">
+            {meta.seasons.map(s => (
+              <div key={s.season_number} className="flex justify-between items-center text-xs bg-muted/30 rounded-lg px-3 py-1.5">
+                <span className="font-medium">{s.name}</span>
+                <span className="text-muted-foreground">{s.episode_count} episodes</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span>Status: {meta.status}</span>
+            <span>Rating: ⭐ {meta.voteAverage.toFixed(1)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Movie info */}
+      {meta.mediaType === 'movie' && (
+        <div className="bg-background/50 rounded-xl p-3 space-y-1">
+          <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+            <Film className="h-3.5 w-3.5" />
+            Live Metadata
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span>Rating: ⭐ {meta.voteAverage.toFixed(1)}</span>
+            {meta.runtime && <span>Runtime: {meta.runtime} min</span>}
+            <span>Status: {meta.status}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Episode guide */}
+      {meta.episodes.length > 0 && (
+        <div className="bg-background/50 rounded-xl p-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+            <List className="h-3.5 w-3.5" />
+            Episode Guide — Season {meta.episodes[0]?.season_number}
+          </div>
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {meta.episodes.map(ep => (
+              <div key={`${ep.season_number}-${ep.episode_number}`} className="flex items-start gap-2 text-xs bg-muted/30 rounded-lg px-3 py-2">
+                {ep.still_path && (
+                  <img
+                    src={`https://image.tmdb.org/t/p/w200${ep.still_path}`}
+                    alt={ep.name}
+                    className="w-16 h-10 rounded object-cover flex-shrink-0"
+                    loading="lazy"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">
+                    S{ep.season_number}E{ep.episode_number} – {ep.name}
+                  </p>
+                  {ep.overview && (
+                    <p className="text-muted-foreground line-clamp-2 mt-0.5">{ep.overview}</p>
+                  )}
+                </div>
+                {ep.vote_average > 0 && (
+                  <span className="text-muted-foreground flex-shrink-0">⭐ {ep.vote_average.toFixed(1)}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   // ─── ACTION BUTTONS FOR IDENTIFIED CONTENT ───
   const renderIdentifiedActions = (msg: LuminaMessage) => {
     if (!msg.identifiedTitle) return null;
     return (
-      <div className="flex flex-wrap gap-2 mt-3">
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5 text-xs"
-          onClick={() => {
-            const query = `recommend ${msg.identifiedType === 'anime' ? 'anime' : 'movies'} similar to ${msg.identifiedTitle}`;
-            setChatInput(query);
-            setTimeout(() => handleChatSubmit(), 100);
-          }}
-        >
-          <Play className="h-3 w-3" /> Similar {msg.identifiedType === 'anime' ? 'Anime' : 'Titles'}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5 text-xs"
-          onClick={() => navigate(`/search?q=${encodeURIComponent(msg.identifiedTitle!)}`)}
-        >
-          <Search className="h-3 w-3" /> View Details
-        </Button>
+      <div className="space-y-0">
+        {/* TMDB metadata cards */}
+        {msg.tmdbMetadata && renderTmdbMetadata(msg.tmdbMetadata)}
+
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs"
+            onClick={() => {
+              const query = `recommend ${msg.identifiedType === 'anime' ? 'anime' : 'movies'} similar to ${msg.identifiedTitle}`;
+              setChatInput(query);
+              setTimeout(() => handleChatSubmit(), 100);
+            }}
+          >
+            <Play className="h-3 w-3" /> Similar {msg.identifiedType === 'anime' ? 'Anime' : 'Titles'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs"
+            onClick={() => {
+              if (msg.tmdbMetadata) {
+                navigate(`/${msg.tmdbMetadata.mediaType === 'tv' ? 'tv' : 'movie'}/${msg.tmdbMetadata.tmdbId}`);
+              } else {
+                navigate(`/search?q=${encodeURIComponent(msg.identifiedTitle!)}`);
+              }
+            }}
+          >
+            <Search className="h-3 w-3" /> View Details
+          </Button>
+          {msg.tmdbMetadata && msg.tmdbMetadata.mediaType === 'tv' && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs"
+              onClick={() => {
+                const query = `Tell me about the episodes of ${msg.identifiedTitle}`;
+                setChatInput(query);
+              }}
+            >
+              <List className="h-3 w-3" /> Episode Info
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs"
+            onClick={() => {
+              if (msg.tmdbMetadata) {
+                addToWatchlist({
+                  id: msg.tmdbMetadata.tmdbId,
+                  title: msg.tmdbMetadata.title,
+                  poster_path: msg.tmdbMetadata.posterPath,
+                  overview: msg.tmdbMetadata.overview,
+                  release_date: msg.tmdbMetadata.firstAirDate || '',
+                  vote_average: msg.tmdbMetadata.voteAverage,
+                  vote_count: 0,
+                  genre_ids: [],
+                  popularity: 0,
+                  backdrop_path: msg.tmdbMetadata.backdropPath,
+                });
+                toast.success(`Added "${msg.tmdbMetadata.title}" to watchlist!`);
+              }
+            }}
+          >
+            <Plus className="h-3 w-3" /> Add to Watchlist
+          </Button>
+        </div>
       </div>
     );
   };
