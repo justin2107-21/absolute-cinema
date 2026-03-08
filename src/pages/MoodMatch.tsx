@@ -227,6 +227,14 @@ export default function MoodMatch() {
       if (message.identifiedTitle) metadata.identifiedTitle = message.identifiedTitle;
       if (message.identifiedType) metadata.identifiedType = message.identifiedType;
       if (message.tmdbMetadata) metadata.tmdbMetadata = message.tmdbMetadata;
+      if (message.anilistMetadata) metadata.anilistMetadata = message.anilistMetadata;
+      if (message.character) metadata.character = message.character;
+      if (message.genre) metadata.genre = message.genre;
+      if (message.year) metadata.year = message.year;
+      if (message.season) metadata.season = message.season;
+      if (message.episode) metadata.episode = message.episode;
+      if (message.episodeTitle) metadata.episodeTitle = message.episodeTitle;
+      if (message.timestamp) metadata.timestamp = message.timestamp;
 
       await supabase.from('chat_messages').insert({
         conversation_id: convId,
