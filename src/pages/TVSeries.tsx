@@ -156,8 +156,8 @@ export default function TVSeries() {
                   onAddToWatchlist={addToWatchlist} 
                   onMarkWatched={markAsWatched}
                   onClick={() => navigate(`/tv/${show.id}`)} 
-                  isInWatchlist={isInWatchlist(show.id)} 
-                  isWatched={isWatched(show.id)} 
+                  isInWatchlist={isInWatchlist(`tmdb-tv-${show.id}`)} 
+                  isWatched={isWatched(`tmdb-tv-${show.id}`)} 
                 />
               ))}
             </MovieRow>
@@ -171,8 +171,8 @@ export default function TVSeries() {
                   onAddToWatchlist={addToWatchlist} 
                   onMarkWatched={markAsWatched}
                   onClick={() => navigate(`/tv/${show.id}`)} 
-                  isInWatchlist={isInWatchlist(show.id)} 
-                  isWatched={isWatched(show.id)} 
+                  isInWatchlist={isInWatchlist(`tmdb-tv-${show.id}`)} 
+                  isWatched={isWatched(`tmdb-tv-${show.id}`)} 
                 />
               ))}
             </MovieRow>
@@ -186,8 +186,8 @@ export default function TVSeries() {
                   onAddToWatchlist={addToWatchlist} 
                   onMarkWatched={markAsWatched}
                   onClick={() => navigate(`/tv/${show.id}`)} 
-                  isInWatchlist={isInWatchlist(show.id)} 
-                  isWatched={isWatched(show.id)} 
+                  isInWatchlist={isInWatchlist(`tmdb-tv-${show.id}`)} 
+                  isWatched={isWatched(`tmdb-tv-${show.id}`)} 
                 />
               ))}
             </MovieRow>
@@ -201,8 +201,8 @@ export default function TVSeries() {
                   onAddToWatchlist={addToWatchlist} 
                   onMarkWatched={markAsWatched}
                   onClick={() => navigate(`/tv/${show.id}`)} 
-                  isInWatchlist={isInWatchlist(show.id)} 
-                  isWatched={isWatched(show.id)} 
+                  isInWatchlist={isInWatchlist(`tmdb-tv-${show.id}`)} 
+                  isWatched={isWatched(`tmdb-tv-${show.id}`)} 
                 />
               ))}
             </MovieRow>
@@ -216,8 +216,8 @@ export default function TVSeries() {
                   onAddToWatchlist={addToWatchlist} 
                   onMarkWatched={markAsWatched}
                   onClick={() => navigate(`/tv/${show.id}`)} 
-                  isInWatchlist={isInWatchlist(show.id)} 
-                  isWatched={isWatched(show.id)} 
+                  isInWatchlist={isInWatchlist(`tmdb-tv-${show.id}`)} 
+                  isWatched={isWatched(`tmdb-tv-${show.id}`)} 
                 />
               ))}
             </MovieRow>

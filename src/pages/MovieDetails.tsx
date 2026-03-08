@@ -13,7 +13,7 @@ import { MovieCard } from '@/components/movies/MovieCard';
 import { CommentSection } from '@/components/comments/CommentSection';
 import { Button } from '@/components/ui/button';
 import { RatingModal } from '@/components/rating/RatingModal';
-import { useWatchlist } from '@/hooks/useWatchlist';
+import { useWatchlist, movieToWatchlistItem } from '@/hooks/useWatchlist';
 import { useFriends } from '@/hooks/useFriends';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -72,9 +72,10 @@ export default function MovieDetails() {
   const releaseYear = (movie.release_date || movie.first_air_date)?.split('-')[0];
   const hours = Math.floor((movie.runtime || 0) / 60);
   const minutes = (movie.runtime || 0) % 60;
-  const inWatchlist = isInWatchlist(movie.id);
-  const watched = isWatched(movie.id);
-  const userRating = getWatchedRating(movie.id);
+  const watchlistId = `tmdb-${contentType}-${movie.id}`;
+  const inWatchlist = isInWatchlist(watchlistId);
+  const watched = isWatched(watchlistId);
+  const userRating = getWatchedRating(watchlistId);
 
   const handleMarkWatched = () => {
     if (!isAuthenticated) {
@@ -89,20 +90,20 @@ export default function MovieDetails() {
 
   const handleRatingSubmit = (rating: number) => {
     setShowRatingModal(false);
-    markAsWatched(movie, rating);
+    markAsWatched(movieToWatchlistItem(movie, contentType), rating);
     postActivity('rated', displayTitle, posterUrl, String(movie.id), 'tmdb', contentType, rating);
     toast.success(`Rated ${displayTitle} ${'⭐'.repeat(rating)}`);
   };
 
   const handleRatingSkip = () => {
     setShowRatingModal(false);
-    markAsWatched(movie);
+    markAsWatched(movieToWatchlistItem(movie, contentType));
     postActivity('watched', displayTitle, posterUrl, String(movie.id), 'tmdb', contentType);
     toast.success(`Marked ${displayTitle} as watched`);
   };
 
   const handleAddToWatchlist = () => {
-    addToWatchlist(movie);
+    addToWatchlist(movieToWatchlistItem(movie, contentType));
     if (isAuthenticated && !inWatchlist) {
       postActivity('watchlist_add', displayTitle, posterUrl, String(movie.id), 'tmdb', contentType);
     }

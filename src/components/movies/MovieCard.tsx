@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Plus, Star, Check } from 'lucide-react';
 import { Movie, getImageUrl, getMovieDetails, getTVDetails } from '@/lib/tmdb';
+import { movieToWatchlistItem } from '@/hooks/useWatchlist';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 
 interface MovieCardProps {
   movie: Movie;
-  onAddToWatchlist?: (movie: Movie) => void;
-  onMarkWatched?: (movie: Movie) => void;
+  onAddToWatchlist?: (item: any) => void;
+  onMarkWatched?: (item: any) => void;
   onClick?: (movie: Movie) => void;
   isInWatchlist?: boolean;
   isWatched?: boolean;
@@ -165,7 +166,7 @@ export function MovieCard({
                   className="flex-1"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onAddToWatchlist?.(movie);
+                    onAddToWatchlist?.(movieToWatchlistItem(movie, mediaType));
                   }}
                 >
                   {isInWatchlist ? (
@@ -185,7 +186,7 @@ export function MovieCard({
                   variant="glass"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onMarkWatched?.(movie);
+                    onMarkWatched?.(movieToWatchlistItem(movie, mediaType));
                   }}
                 >
                   <Play className="h-4 w-4" />
