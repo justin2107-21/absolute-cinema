@@ -11,7 +11,6 @@ interface MovieCardProps {
   movie: Movie;
   onAddToWatchlist?: (item: any) => void;
   onMarkWatched?: (item: any) => void;
-  onMarkWatched?: (movie: Movie) => void;
   onClick?: (movie: Movie) => void;
   isInWatchlist?: boolean;
   isWatched?: boolean;
