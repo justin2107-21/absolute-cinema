@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button';
 import { ImageCropModal } from './ImageCropModal';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { Upload, Video, Loader2 } from 'lucide-react';
 
 // Each animated preset uses a real image with a CSS animation type
 const ANIMATED_PRESETS: { label: string; image: string; animation: string }[] = [
@@ -46,6 +49,14 @@ export function parseAnimatedBanner(value: string): { image: string; animation: 
   }
 }
 
+export function isVideoBanner(value: string): boolean {
+  return value.startsWith('video:');
+}
+
+export function getVideoBannerUrl(value: string): string {
+  return value.replace('video:', '');
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -54,8 +65,10 @@ interface Props {
 
 export function BannerSelector({ open, onOpenChange, onSelect }: Props) {
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const { user } = useAuth();
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
@@ -72,20 +85,57 @@ export function BannerSelector({ open, onOpenChange, onSelect }: Props) {
     e.target.value = '';
   };
 
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (file.type !== 'video/mp4') {
+      toast.error('Only MP4 videos are allowed');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('Video must be under 20MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileName = `${user.id}/${Date.now()}.mp4`;
+      const { error: uploadError } = await supabase.storage
+        .from('profile-banners')
+        .upload(fileName, file, { contentType: 'video/mp4', upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('profile-banners')
+        .getPublicUrl(fileName);
+
+      onSelect(`video:${urlData.publicUrl}`);
+      onOpenChange(false);
+      toast.success('Video banner uploaded!');
+    } catch (err: any) {
+      toast.error('Failed to upload video: ' + (err.message || 'Unknown error'));
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-lg" aria-describedby="banner-desc">
           <DialogHeader>
             <DialogTitle>Choose Banner</DialogTitle>
-            <DialogDescription id="banner-desc">Pick a live wallpaper, gradient, or upload your own image.</DialogDescription>
+            <DialogDescription id="banner-desc">Pick a live wallpaper, gradient, or upload your own image/video.</DialogDescription>
           </DialogHeader>
 
           <Tabs defaultValue="animated" className="w-full">
-            <TabsList className="w-full grid grid-cols-3">
+            <TabsList className="w-full grid grid-cols-4">
               <TabsTrigger value="animated">Live</TabsTrigger>
               <TabsTrigger value="gradient">Gradient</TabsTrigger>
-              <TabsTrigger value="upload">Upload</TabsTrigger>
+              <TabsTrigger value="upload">Image</TabsTrigger>
+              <TabsTrigger value="video">Video</TabsTrigger>
             </TabsList>
 
             {/* Live wallpaper presets */}
@@ -122,15 +172,34 @@ export function BannerSelector({ open, onOpenChange, onSelect }: Props) {
               </div>
             </TabsContent>
 
-            {/* Upload custom */}
+            {/* Upload custom image */}
             <TabsContent value="upload" className="mt-3">
               <div className="text-center py-8 space-y-3">
+                <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">Upload a custom banner image (max 5MB)</p>
                 <label className="cursor-pointer">
                   <Button variant="outline" size="sm" asChild>
                     <span>Choose Image</span>
                   </Button>
-                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleUpload} />
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleImageUpload} />
+                </label>
+              </div>
+            </TabsContent>
+
+            {/* Upload MP4 video */}
+            <TabsContent value="video" className="mt-3">
+              <div className="text-center py-8 space-y-3">
+                <Video className="h-8 w-8 mx-auto text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Upload an MP4 video as a live wallpaper banner (max 20MB)</p>
+                <p className="text-xs text-muted-foreground">Short looping videos (5-15s) work best</p>
+                <label className="cursor-pointer">
+                  <Button variant="outline" size="sm" asChild disabled={uploading}>
+                    <span className="flex items-center gap-2">
+                      {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {uploading ? 'Uploading...' : 'Choose Video'}
+                    </span>
+                  </Button>
+                  <input type="file" accept="video/mp4" className="hidden" onChange={handleVideoUpload} disabled={uploading} />
                 </label>
               </div>
             </TabsContent>
