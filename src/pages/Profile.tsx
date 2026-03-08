@@ -180,6 +180,16 @@ export default function Profile() {
                   className={`absolute inset-0 w-full h-full object-cover banner-anim-${animatedBanner.animation}`}
                 />
               )}
+              {videoBanner && (
+                <video
+                  src={videoBanner}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              )}
               {isAuthenticated && (
                 <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
                   <ImageIcon className="h-5 w-5 text-white" />
