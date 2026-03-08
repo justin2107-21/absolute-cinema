@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Paperclip, Image as ImageIcon, Smile, Info, X, Check, CheckCheck, FileText, Link2, Edit3 } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, Image as ImageIcon, Smile, Info, X, Check, CheckCheck, FileText, Link2, Edit3, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChat, type DmMessage } from '@/hooks/useChat';
 import { GifPicker } from './GifPicker';
+import { ChatThemePicker, getChatTheme, type ChatTheme } from './ChatThemePicker';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -49,6 +50,8 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
   const [nickname, setNickname] = useState<string | null>(null);
   const [editingNickname, setEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
+  const [chatTheme, setChatThemeState] = useState<ChatTheme>(() => getChatTheme(conversationId));
+  const [showThemes, setShowThemes] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
