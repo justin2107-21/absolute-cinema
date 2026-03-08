@@ -869,9 +869,9 @@ export default function MoodMatch() {
                     <TabsContent value="movies" className="mt-4">
                       {isLoadingMovies ? (
                         <div className="grid grid-cols-2 gap-4">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="aspect-[2/3] rounded-xl bg-muted animate-pulse" />)}</div>
-                      ) : moodMovies?.length ? (
+                      ) : moodMovies?.results?.length ? (
                         <div className="grid grid-cols-2 gap-4">
-                          {moodMovies.map(movie => (
+                          {moodMovies.results.map(movie => (
                             <MovieCard key={movie.id} movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
                           ))}
                         </div>
