@@ -106,7 +106,7 @@ export default function Profile() {
 
   const handleBannerSelect = async (value: string) => {
     if (!user) return;
-    const { error } = await supabase.from('profiles').update({ banner_url: value } as any).eq('user_id', user.id);
+    const { error } = await (supabase.from('profiles') as any).update({ banner_url: value }).eq('user_id', user.id);
     if (error) { toast.error('Failed to update banner'); return; }
     setProfileData(prev => ({ ...prev, banner_url: value }));
     toast.success('Banner updated!');
@@ -132,10 +132,13 @@ export default function Profile() {
     else item.onClick();
   };
 
-  const bannerStyle = profileData.banner_url
-    ? profileData.banner_url.startsWith('linear-gradient')
-      ? { background: profileData.banner_url }
-      : { backgroundImage: `url(${profileData.banner_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+  const isAnimatedBanner = profileData.banner_url?.startsWith('animated:');
+  const bannerStyle: React.CSSProperties = profileData.banner_url
+    ? isAnimatedBanner
+      ? { background: profileData.banner_url.replace('animated:', ''), backgroundSize: '200% 200%', animation: 'bannerShift 4s ease infinite' }
+      : profileData.banner_url.startsWith('linear-gradient')
+        ? { background: profileData.banner_url }
+        : { backgroundImage: `url(${profileData.banner_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
     : {};
 
   return (
@@ -162,8 +165,9 @@ export default function Profile() {
         {/* Profile Card */}
         <section className="px-4">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card overflow-hidden">
+            {/* Banner */}
             <div
-              className="h-24 bg-gradient-to-r from-primary/40 to-accent/30 relative cursor-pointer group"
+              className="h-32 bg-gradient-to-r from-primary/40 to-accent/30 relative cursor-pointer group"
               style={bannerStyle}
               onClick={() => isAuthenticated && setShowBannerSelector(true)}
             >
@@ -173,58 +177,60 @@ export default function Profile() {
                 </div>
               )}
             </div>
-            <div className="px-4 pb-4 -mt-10">
-              <div className="flex items-end gap-3">
-                <div className="relative">
-                  {profileLoading ? (
-                    <Skeleton className="h-20 w-20 rounded-full" />
-                  ) : (
-                    <Avatar className="h-20 w-20 border-4 border-card shadow-xl">
-                      <AvatarImage src={profileData.avatar_url || undefined} />
-                      <AvatarFallback className="text-xl bg-primary/20">
-                        {(profileData.username || 'G').charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                  {isAuthenticated && (
-                    <label className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary flex items-center justify-center cursor-pointer border-2 border-card">
-                      <Camera className="h-3.5 w-3.5 text-primary-foreground" />
-                      <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleAvatarSelect} />
-                    </label>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0 pb-1">
-                  {profileLoading ? (
-                    <div className="space-y-2">
-                      <Skeleton className="h-5 w-32" />
-                      <Skeleton className="h-3 w-48" />
-                    </div>
-                  ) : isEditing ? (
-                    <div className="space-y-2">
-                      <Input value={editData.username} onChange={(e) => setEditData(prev => ({ ...prev, username: e.target.value }))}
-                        placeholder="Display name" className="h-8 text-sm" />
-                      <Textarea value={editData.bio} onChange={(e) => setEditData(prev => ({ ...prev, bio: e.target.value }))}
-                        placeholder="Tell us about yourself..." className="min-h-[50px] text-sm" maxLength={200} />
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={handleSaveProfile}>Save</Button>
-                        <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-bold truncate">{isAuthenticated ? profileData.username : 'Guest User'}</h2>
-                        {isAuthenticated && (
-                          <button onClick={() => setIsEditing(true)} className="text-muted-foreground hover:text-foreground">
-                            <Edit3 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                      {profileData.bio && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{profileData.bio}</p>}
-                    </>
-                  )}
-                </div>
+
+            {/* Avatar row – overlaps banner */}
+            <div className="px-4 -mt-12">
+              <div className="relative inline-block">
+                {profileLoading ? (
+                  <Skeleton className="h-20 w-20 rounded-full" />
+                ) : (
+                  <Avatar className="h-20 w-20 border-4 border-card shadow-xl">
+                    <AvatarImage src={profileData.avatar_url || undefined} />
+                    <AvatarFallback className="text-xl bg-primary/20">
+                      {(profileData.username || 'G').charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                {isAuthenticated && (
+                  <label className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary flex items-center justify-center cursor-pointer border-2 border-card">
+                    <Camera className="h-3.5 w-3.5 text-primary-foreground" />
+                    <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleAvatarSelect} />
+                  </label>
+                )}
               </div>
+            </div>
+
+            {/* Username & bio – fully below banner */}
+            <div className="px-4 pt-2 pb-4">
+              {profileLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-32" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+              ) : isEditing ? (
+                <div className="space-y-2">
+                  <Input value={editData.username} onChange={(e) => setEditData(prev => ({ ...prev, username: e.target.value }))}
+                    placeholder="Display name" className="h-8 text-sm" />
+                  <Textarea value={editData.bio} onChange={(e) => setEditData(prev => ({ ...prev, bio: e.target.value }))}
+                    placeholder="Tell us about yourself..." className="min-h-[50px] text-sm" maxLength={200} />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSaveProfile}>Save</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold truncate">{isAuthenticated ? profileData.username : 'Guest User'}</h2>
+                    {isAuthenticated && (
+                      <button onClick={() => setIsEditing(true)} className="text-muted-foreground hover:text-foreground">
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {profileData.bio && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{profileData.bio}</p>}
+                </>
+              )}
               {!isAuthenticated && (
                 <Button className="w-full mt-4" onClick={() => setShowSignInModal(true)}>Sign in for full features</Button>
               )}
