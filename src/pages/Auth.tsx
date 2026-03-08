@@ -318,14 +318,14 @@ export default function Auth() {
           </Button>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
-              {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
+              {mode === 'forgot' ? 'Remember your password?' : mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
             </p>
             <Button
               variant="link"
               className="text-primary"
-              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+              onClick={() => setMode(mode === 'forgot' ? 'login' : mode === 'login' ? 'signup' : 'login')}
             >
-              {mode === 'login' ? 'Sign up' : 'Sign in'}
+              {mode === 'forgot' ? 'Back to Sign In' : mode === 'login' ? 'Sign up' : 'Sign in'}
             </Button>
           </div>
         </motion.div>
