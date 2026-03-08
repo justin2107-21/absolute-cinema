@@ -137,6 +137,8 @@ export function useChat() {
         message_type: messageType,
         file_url: fileUrl || null,
         file_name: fileName || null,
+        is_delivered: false,
+        is_read: false,
       });
 
     if (error) { toast.error('Failed to send message'); return; }
@@ -149,11 +151,22 @@ export function useChat() {
 
   const markAsRead = useCallback(async (conversationId: string) => {
     if (!user) return;
+    // Mark as both delivered and read
     await supabase
       .from('dm_messages')
-      .update({ is_read: true })
+      .update({ is_read: true, is_delivered: true })
       .eq('conversation_id', conversationId)
       .eq('is_read', false)
+      .neq('sender_id', user.id);
+  }, [user]);
+
+  const markAsDelivered = useCallback(async (conversationId: string) => {
+    if (!user) return;
+    await supabase
+      .from('dm_messages')
+      .update({ is_delivered: true })
+      .eq('conversation_id', conversationId)
+      .eq('is_delivered', false)
       .neq('sender_id', user.id);
   }, [user]);
 
@@ -177,9 +190,20 @@ export function useChat() {
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
 
+  // Auto-mark messages as delivered when conversations load (user is active)
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
+
+  // Mark all unread messages as delivered when user is active
+  useEffect(() => {
+    if (!user) return;
+    conversations.forEach(c => {
+      if (c.unread_count && c.unread_count > 0) {
+        markAsDelivered(c.id);
+      }
+    });
+  }, [conversations, user, markAsDelivered]);
 
   return {
     conversations,
@@ -190,6 +214,7 @@ export function useChat() {
     loadMessages,
     sendMessage,
     markAsRead,
+    markAsDelivered,
     uploadFile,
   };
 }
