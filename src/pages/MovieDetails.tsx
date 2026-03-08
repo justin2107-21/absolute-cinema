@@ -174,7 +174,7 @@ export default function MovieDetails() {
             </Button>
             <Button variant="glass" className="h-12 w-12 flex-shrink-0" onClick={async () => {
               try {
-                if (navigator.share) await navigator.share({ title: movie.title, url: window.location.href });
+                if (navigator.share) await navigator.share({ title: displayTitle, url: window.location.href });
                 else { await navigator.clipboard.writeText(window.location.href); toast.success('Link copied!'); }
               } catch (e) { console.error(e); }
             }}>
