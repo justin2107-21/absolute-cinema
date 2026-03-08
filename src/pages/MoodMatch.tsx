@@ -1179,7 +1179,7 @@ export default function MoodMatch() {
                       ) : moodMovies?.results?.length ? (
                         <div className="grid grid-cols-2 gap-4">
                           {moodMovies.results.map(movie => (
-                            <MovieCard key={movie.id} movie={movie} onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
+                            <MovieCard key={movie.id} movie={movie} size="grid" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
                           ))}
                         </div>
                       ) : <p className="text-center text-muted-foreground py-8">No movies found for this mood.</p>}
