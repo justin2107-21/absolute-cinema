@@ -132,20 +132,12 @@ export default function Profile() {
     else item.onClick();
   };
 
-  const animatedBanner = profileData.banner_url ? (() => {
-    try {
-      if (profileData.banner_url?.startsWith('animated:')) {
-        const parsed = JSON.parse(profileData.banner_url.replace('animated:', ''));
-        return parsed as { image: string; animation: string };
-      }
-    } catch { /* ignore */ }
-    return null;
-  })() : null;
-
-  const bannerIsImage = profileData.banner_url && !animatedBanner && !profileData.banner_url.startsWith('linear-gradient');
+  const animatedBanner = profileData.banner_url ? parseAnimatedBanner(profileData.banner_url) : null;
+  const videoBanner = profileData.banner_url && isVideoBanner(profileData.banner_url) ? getVideoBannerUrl(profileData.banner_url) : null;
+  const bannerIsImage = profileData.banner_url && !animatedBanner && !videoBanner && !profileData.banner_url.startsWith('linear-gradient');
   const bannerStyle: React.CSSProperties = profileData.banner_url
-    ? animatedBanner
-      ? {} // handled by img element
+    ? animatedBanner || videoBanner
+      ? {} // handled by img/video element
       : profileData.banner_url.startsWith('linear-gradient')
         ? { background: profileData.banner_url }
         : { backgroundImage: `url(${profileData.banner_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
