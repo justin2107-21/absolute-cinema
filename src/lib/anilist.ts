@@ -1,5 +1,7 @@
 // AniList GraphQL API integration for anime recommendations
 
+import { supabase } from '@/integrations/supabase/client';
+
 const ANILIST_API = 'https://graphql.anilist.co';
 
 export interface AniListMedia {
