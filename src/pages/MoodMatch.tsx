@@ -808,9 +808,8 @@ export default function MoodMatch() {
                 </Button>
               )}
               <div>
-                <motion.h1 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-2xl font-bold flex items-center gap-2">
-                  <Sparkles className="h-6 w-6 text-primary" />
-                  Lumina AI
+                <motion.h1 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-2xl font-bold">
+                  MoodMatch AI
                 </motion.h1>
                 <p className="text-sm text-muted-foreground">
                   Your personal entertainment companion
@@ -840,7 +839,7 @@ export default function MoodMatch() {
                         <Sparkles className="h-4 w-4 text-primary-foreground" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-semibold text-sm">Lumina</p>
+                        <p className="font-semibold text-sm">MoodMatch</p>
                         <p className="text-xs text-muted-foreground">Online • Ready to help</p>
                       </div>
                     </div>
