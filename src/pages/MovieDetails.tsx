@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { 
   ArrowLeft, Star, Clock, Calendar, Plus, Check, Share2
 } from 'lucide-react';
-import { getMovieDetails, getSimilarMovies, getImageUrl } from '@/lib/tmdb';
+import { getMovieDetails, getTVDetails, getSimilarMovies, getImageUrl } from '@/lib/tmdb';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MovieRow } from '@/components/movies/MovieRow';
 import { MovieCard } from '@/components/movies/MovieCard';
@@ -20,21 +20,25 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function MovieDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated } = useAuth();
   const { addToWatchlist, markAsWatched, isInWatchlist, isWatched, getWatchedRating } = useWatchlist();
   const { postActivity } = useFriends();
   const [showRatingModal, setShowRatingModal] = useState(false);
 
+  const isTV = location.pathname.startsWith('/tv/');
+  const contentType = isTV ? 'tv' : 'movie';
+
   const { data: movie, isLoading } = useQuery({
-    queryKey: ['movie', id],
-    queryFn: () => getMovieDetails(Number(id)),
+    queryKey: [contentType, id],
+    queryFn: () => isTV ? getTVDetails(Number(id)) : getMovieDetails(Number(id)),
     enabled: !!id,
   });
 
   const { data: similar } = useQuery({
-    queryKey: ['similar', id],
+    queryKey: ['similar', contentType, id],
     queryFn: () => getSimilarMovies(Number(id)),
-    enabled: !!id,
+    enabled: !!id && !isTV,
   });
 
   const trailer = movie?.videos?.results.find(
