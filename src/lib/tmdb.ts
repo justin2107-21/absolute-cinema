@@ -173,24 +173,24 @@ export const discoverMovies = async (params: {
   );
 };
 
-// Extended mood-based genre mapping with more variety
+// Therapeutic mood-based genre mapping — content to HELP with the mood, not match it
 export const moodToGenres: Record<string, number[]> = {
-  happy: [35, 10751, 16], // Comedy, Family, Animation
-  sad: [18, 10749], // Drama, Romance
-  stressed: [35, 16, 10751], // Comedy, Animation, Family
-  romantic: [10749, 35], // Romance, Comedy
-  excited: [28, 12, 878], // Action, Adventure, Sci-Fi
-  relaxed: [99, 10751, 16], // Documentary, Family, Animation
-  lonely: [18, 10749, 10751], // Drama, Romance, Family
-  anxious: [35, 16, 10402], // Comedy, Animation, Music
-  burned_out: [16, 10751, 14], // Animation, Family, Fantasy
-  overwhelmed: [16, 35, 10751], // Animation, Comedy, Family
-  nostalgic: [10751, 16, 12], // Family, Animation, Adventure
-  heartbroken: [18, 10749, 10402], // Drama, Romance, Music
-  motivated: [28, 12, 36], // Action, Adventure, History
-  bored: [53, 9648, 878], // Thriller, Mystery, Sci-Fi
-  hopeful: [18, 10751, 14], // Drama, Family, Fantasy
-  curious: [99, 878, 9648], // Documentary, Sci-Fi, Mystery
+  happy: [35, 10751, 16], // Comedy, Family, Animation — keep the good vibes going
+  sad: [35, 10751, 16], // Comedy, Family, Animation — cheer you up
+  stressed: [35, 16, 10751], // Comedy, Animation, Family — lighten the load
+  romantic: [10749, 35], // Romance, Comedy — lean into the love
+  excited: [28, 12, 878], // Action, Adventure, Sci-Fi — match the energy
+  relaxed: [99, 10751, 16], // Documentary, Family, Animation — keep the calm
+  lonely: [35, 10751, 10749], // Comedy, Family, Romance — warm & comforting
+  anxious: [35, 16, 10402], // Comedy, Animation, Music — soothing & fun
+  burned_out: [35, 16, 10751], // Comedy, Animation, Family — easy watch, no stress
+  overwhelmed: [16, 35, 10751], // Animation, Comedy, Family — gentle & light
+  nostalgic: [10751, 16, 12], // Family, Animation, Adventure — warm memories
+  heartbroken: [35, 10751, 16], // Comedy, Family, Animation — healing & uplifting
+  motivated: [28, 12, 36], // Action, Adventure, History — fuel the fire
+  bored: [53, 9648, 878], // Thriller, Mystery, Sci-Fi — something gripping
+  hopeful: [18, 10751, 14], // Drama, Family, Fantasy — inspiring stories
+  curious: [99, 878, 9648], // Documentary, Sci-Fi, Mystery — feed the mind
 };
 
 // Language codes for filtering
