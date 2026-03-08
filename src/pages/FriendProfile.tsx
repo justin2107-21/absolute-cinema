@@ -170,17 +170,21 @@ export default function FriendProfile() {
         {/* Banner */}
         {(() => {
           const animated = profile.banner_url ? parseAnimatedBanner(profile.banner_url) : null;
+          const video = profile.banner_url && isVideoBanner(profile.banner_url) ? getVideoBannerUrl(profile.banner_url) : null;
           const isGradient = profile.banner_url?.startsWith('linear-gradient');
-          const isCustomImage = profile.banner_url && !animated && !isGradient;
+          const isCustomImage = profile.banner_url && !animated && !video && !isGradient;
           const style: React.CSSProperties = isGradient
             ? { background: profile.banner_url! }
             : isCustomImage
               ? { backgroundImage: `url(${profile.banner_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
               : {};
           return (
-            <div className="relative h-32 bg-gradient-to-br from-primary/30 to-accent/20 overflow-hidden" style={!animated ? style : {}}>
+            <div className="relative h-32 bg-gradient-to-br from-primary/30 to-accent/20 overflow-hidden" style={!animated && !video ? style : {}}>
               {animated && (
                 <img src={animated.image} alt="Banner" className={`absolute inset-0 w-full h-full object-cover banner-anim-${animated.animation}`} />
+              )}
+              {video && (
+                <video src={video} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover" />
               )}
               <div className="absolute top-4 left-4 z-20">
                 <Button variant="glass" size="icon" onClick={() => navigate(-1)}>
