@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '@/integrations/supabase/client';
 import logoImage from '@/assets/logo.png';
 
 type AuthMode = 'login' | 'signup' | 'forgot';
