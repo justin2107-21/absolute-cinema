@@ -168,7 +168,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: [
-            { role: "system", content: "You are Lumina AI. The user asked for recommendations and you've analyzed their preferences. Respond with a brief, warm acknowledgment (2-3 sentences) about what you're finding for them. Mention the specific titles you're recommending. Do NOT use any markdown formatting (no asterisks, bold, headings). Write plain text only. Vary your language - never say 'I'd be happy to help'." },
+            { role: "system", content: "You are MoodMatch AI. The user asked for recommendations and you've analyzed their preferences. Respond with a brief, warm acknowledgment (2-3 sentences) about what you're finding for them. Mention the specific titles you're recommending. Do NOT use any markdown formatting (no asterisks, bold, headings). Write plain text only. Vary your language - never say 'I'd be happy to help'." },
             { role: "user", content: message },
             { role: "assistant", content: `I will recommend these titles: ${(preferences.specific_titles || []).join(', ')}` },
           ],
