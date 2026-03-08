@@ -248,7 +248,7 @@ export default function MoodMatch() {
     try {
       const recs = await getMoodRecommendations(prefs);
       setChatHistory(prev => prev.map((m, i) =>
-        i === messageIndex ? { ...m, recommendations: recs, isLoadingRecs: false, showRecommendations: false } : m
+        i === messageIndex ? { ...m, recommendations: recs, isLoadingRecs: false, showRecommendations: false, recsVisible: true } : m
       ));
     } catch (error) {
       console.error('Error fetching recommendations:', error);
@@ -257,6 +257,12 @@ export default function MoodMatch() {
         i === messageIndex ? { ...m, isLoadingRecs: false } : m
       ));
     }
+  };
+
+  const toggleRecsVisibility = (messageIndex: number) => {
+    setChatHistory(prev => prev.map((m, i) =>
+      i === messageIndex ? { ...m, recsVisible: !m.recsVisible } : m
+    ));
   };
 
   // ─── IMAGE HANDLING (staged, not auto-sent) ───
