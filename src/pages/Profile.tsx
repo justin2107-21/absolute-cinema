@@ -394,6 +394,92 @@ export default function Profile() {
           </section>
         )}
       </div>
+
+      {/* Avatar Fullscreen Viewer */}
+      <AnimatePresence>
+        {showAvatarViewer && profileData.avatar_url && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+            onClick={() => setShowAvatarViewer(false)}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 text-white hover:bg-white/10 z-10"
+              onClick={() => setShowAvatarViewer(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <motion.img
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              src={profileData.avatar_url}
+              alt="Profile"
+              className="max-w-[85vw] max-h-[85vh] rounded-2xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Avatar Actions (long press / right click) */}
+      <AnimatePresence>
+        {showAvatarActions && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 flex items-end justify-center"
+            onClick={() => setShowAvatarActions(false)}
+          >
+            <motion.div
+              initial={{ y: 100 }}
+              animate={{ y: 0 }}
+              exit={{ y: 100 }}
+              className="w-full max-w-md bg-card rounded-t-2xl p-4 space-y-2 safe-bottom"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-10 h-1 rounded-full bg-muted mx-auto mb-3" />
+              {profileData.avatar_url && (
+                <button
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = profileData.avatar_url!;
+                    link.download = 'profile-picture.png';
+                    link.target = '_blank';
+                    link.click();
+                    setShowAvatarActions(false);
+                  }}
+                >
+                  <Download className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium">Save Profile Picture</span>
+                </button>
+              )}
+              <button
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors"
+                onClick={() => {
+                  setShowAvatarActions(false);
+                  document.getElementById('avatar-file-input')?.click();
+                }}
+              >
+                <Camera className="h-5 w-5 text-muted-foreground" />
+                <span className="font-medium">Change Profile Picture</span>
+              </button>
+              <button
+                className="w-full p-3 rounded-xl text-muted-foreground hover:bg-secondary/50 transition-colors font-medium"
+                onClick={() => setShowAvatarActions(false)}
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AppLayout>
   );
 }
