@@ -97,6 +97,7 @@ export default function AnimeDetails() {
   const watched = isWatched(animeItem.id);
   const userRating = getWatchedRating(animeItem.id);
   const rating = anime.averageScore ? (anime.averageScore / 10).toFixed(1) : null;
+  const isUpcoming = anime.status === 'NOT_YET_RELEASED';
   const trailerUrl = anime.trailer?.site === 'youtube' ? `https://www.youtube.com/embed/${anime.trailer.id}` : null;
   const animationStudios = anime.studios?.nodes?.filter(s => s.isAnimationStudio) || [];
   const producers = anime.studios?.nodes?.filter(s => !s.isAnimationStudio) || [];
@@ -233,9 +234,15 @@ export default function AnimeDetails() {
             <Button variant={inWatchlist ? "secondary" : "outline"} className="flex-1 gap-2 h-12" onClick={handleAddToWatchlist}>
               {inWatchlist ? (<><Check className="h-4 w-4" /> In Watchlist</>) : (<><Plus className="h-4 w-4" /> Watchlist</>)}
             </Button>
-            <Button variant={watched ? "secondary" : "glass"} className="flex-1 gap-2 h-12" onClick={handleMarkWatched}>
-              {watched ? (<><Check className="h-4 w-4 text-green-400" /> Watched</>) : (<><Check className="h-4 w-4" /> Watched</>)}
-            </Button>
+            {isUpcoming ? (
+              <Button variant="secondary" className="flex-1 gap-2 h-12" disabled>
+                <Clock className="h-4 w-4" /> Coming Soon
+              </Button>
+            ) : (
+              <Button variant={watched ? "secondary" : "glass"} className="flex-1 gap-2 h-12" onClick={handleMarkWatched}>
+                {watched ? (<><Check className="h-4 w-4 text-green-400" /> Watched</>) : (<><Check className="h-4 w-4" /> Watched</>)}
+              </Button>
+            )}
             <Button variant="glass" className="h-12 w-12 flex-shrink-0" onClick={handleShare}>
               <Share2 className="h-5 w-5" />
             </Button>

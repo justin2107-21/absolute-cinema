@@ -10,9 +10,11 @@ interface UnifiedCardProps {
   onClick?: () => void;
   size?: 'sm' | 'md' | 'lg';
   showTypeBadge?: boolean;
+  /** When true, rating badge and rating in hover card are hidden (e.g. for unreleased/upcoming content) */
+  hideRating?: boolean;
 }
 
-export function UnifiedCard({ content, onClick, size = 'md', showTypeBadge = false }: UnifiedCardProps) {
+export function UnifiedCard({ content, onClick, size = 'md', showTypeBadge = false, hideRating = false }: UnifiedCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   const sizeClasses = {
@@ -50,11 +52,13 @@ export function UnifiedCard({ content, onClick, size = 'md', showTypeBadge = fal
           </div>
         )}
 
-        {/* Rating badge */}
-        <div className="absolute top-2 right-2 flex items-center gap-1 rounded-lg bg-background/80 backdrop-blur-sm px-2 py-1">
-          <Star className="h-3 w-3 fill-accent text-accent" />
-          <span className="text-xs font-semibold">{rating}</span>
-        </div>
+        {/* Rating badge - hidden for unreleased/upcoming content */}
+        {!hideRating && rating != null && (
+          <div className="absolute top-2 right-2 flex items-center gap-1 rounded-lg bg-background/80 backdrop-blur-sm px-2 py-1">
+            <Star className="h-3 w-3 fill-accent text-accent" />
+            <span className="text-xs font-semibold">{rating}</span>
+          </div>
+        )}
 
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -87,11 +91,13 @@ export function UnifiedCard({ content, onClick, size = 'md', showTypeBadge = fal
                 <h3 className="font-bold text-foreground line-clamp-1">{content.title}</h3>
                 <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                   {releaseYear && <span>{releaseYear}</span>}
-                  {releaseYear && <span>•</span>}
-                  <div className="flex items-center gap-1">
-                    <Star className="h-3 w-3 fill-accent text-accent" />
-                    <span>{rating}</span>
-                  </div>
+                  {releaseYear && !hideRating && rating != null && <span>•</span>}
+                  {!hideRating && rating != null && (
+                    <div className="flex items-center gap-1">
+                      <Star className="h-3 w-3 fill-accent text-accent" />
+                      <span>{rating}</span>
+                    </div>
+                  )}
                   {content.episodes && (
                     <>
                       <span>•</span>

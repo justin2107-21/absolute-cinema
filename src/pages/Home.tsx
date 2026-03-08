@@ -183,7 +183,7 @@ export default function Home() {
             {upcomingAnimeUnified.length > 0 && (
               <MovieRow title="Upcoming Next Season" subtitle="Anime airing next season" icon={<Clock className="h-5 w-5" />}>
                 {upcomingAnimeUnified.map((content) => (
-                  <UnifiedCard key={content.id} content={content} size="sm" onClick={() => navigate(getContentPath(content))} />
+                  <UnifiedCard key={content.id} content={content} size="sm" onClick={() => navigate(getContentPath(content))} hideRating />
                 ))}
               </MovieRow>
             )}
