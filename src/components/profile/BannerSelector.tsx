@@ -5,6 +5,18 @@ import { ImageCropModal } from './ImageCropModal';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+// Each animated preset uses a real image with a CSS animation type
+const ANIMATED_PRESETS: { label: string; image: string; animation: string }[] = [
+  { label: 'Cosmic Nebula', image: '/banners/cosmic-nebula.jpg', animation: 'slowZoom' },
+  { label: 'Neon City', image: '/banners/neon-city.jpg', animation: 'slowPan' },
+  { label: 'Aurora', image: '/banners/aurora.jpg', animation: 'slowZoom' },
+  { label: 'Ocean Sunset', image: '/banners/ocean-sunset.jpg', animation: 'slowPan' },
+  { label: 'Enchanted Forest', image: '/banners/enchanted-forest.jpg', animation: 'slowZoom' },
+  { label: 'Lava Flow', image: '/banners/lava-flow.jpg', animation: 'slowPulse' },
+  { label: 'Chrome Waves', image: '/banners/chrome-waves.jpg', animation: 'slowPan' },
+  { label: 'Sakura', image: '/banners/sakura.jpg', animation: 'slowZoom' },
+];
+
 const GRADIENT_PRESETS = [
   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
   'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
@@ -20,53 +32,18 @@ const GRADIENT_PRESETS = [
   'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
 ];
 
-// Discord-style animated CSS banners stored as a CSS class key
-const ANIMATED_PRESETS: { label: string; style: React.CSSProperties; animation: string }[] = [
-  {
-    label: 'Nitro Shift',
-    style: { backgroundSize: '200% 200%' },
-    animation: 'linear-gradient(270deg, #5865f2, #eb459e, #fee75c, #57f287, #5865f2)',
-  },
-  {
-    label: 'Aurora',
-    style: { backgroundSize: '300% 300%' },
-    animation: 'linear-gradient(270deg, #0f2027, #203a43, #2c5364, #0f2027)',
-  },
-  {
-    label: 'Sunset Blaze',
-    style: { backgroundSize: '200% 200%' },
-    animation: 'linear-gradient(270deg, #f12711, #f5af19, #f12711)',
-  },
-  {
-    label: 'Ocean Dream',
-    style: { backgroundSize: '200% 200%' },
-    animation: 'linear-gradient(270deg, #2193b0, #6dd5ed, #2193b0)',
-  },
-  {
-    label: 'Neon Glow',
-    style: { backgroundSize: '200% 200%' },
-    animation: 'linear-gradient(270deg, #ff00cc, #333399, #00ccff, #ff00cc)',
-  },
-  {
-    label: 'Cyber Pulse',
-    style: { backgroundSize: '300% 300%' },
-    animation: 'linear-gradient(270deg, #00f260, #0575e6, #a100ff, #00f260)',
-  },
-  {
-    label: 'Lava Flow',
-    style: { backgroundSize: '200% 200%' },
-    animation: 'linear-gradient(270deg, #ee0979, #ff6a00, #ee0979)',
-  },
-  {
-    label: 'Midnight',
-    style: { backgroundSize: '200% 200%' },
-    animation: 'linear-gradient(270deg, #232526, #414345, #232526)',
-  },
-];
+// Encode animated banner as JSON so we can parse it on the profile page
+export function encodeAnimatedBanner(image: string, animation: string): string {
+  return `animated:${JSON.stringify({ image, animation })}`;
+}
 
-// Store animated banners as a special JSON string so we can differentiate them
-function encodeAnimatedBanner(gradient: string): string {
-  return `animated:${gradient}`;
+export function parseAnimatedBanner(value: string): { image: string; animation: string } | null {
+  if (!value.startsWith('animated:')) return null;
+  try {
+    return JSON.parse(value.replace('animated:', ''));
+  } catch {
+    return null;
+  }
 }
 
 interface Props {
@@ -101,30 +78,30 @@ export function BannerSelector({ open, onOpenChange, onSelect }: Props) {
         <DialogContent className="sm:max-w-lg" aria-describedby="banner-desc">
           <DialogHeader>
             <DialogTitle>Choose Banner</DialogTitle>
-            <DialogDescription id="banner-desc">Pick a gradient, animated banner, or upload your own image.</DialogDescription>
+            <DialogDescription id="banner-desc">Pick a live wallpaper, gradient, or upload your own image.</DialogDescription>
           </DialogHeader>
 
           <Tabs defaultValue="animated" className="w-full">
             <TabsList className="w-full grid grid-cols-3">
-              <TabsTrigger value="animated">Animated</TabsTrigger>
+              <TabsTrigger value="animated">Live</TabsTrigger>
               <TabsTrigger value="gradient">Gradient</TabsTrigger>
               <TabsTrigger value="upload">Upload</TabsTrigger>
             </TabsList>
 
-            {/* Animated Discord-style */}
+            {/* Live wallpaper presets */}
             <TabsContent value="animated" className="mt-3">
               <div className="grid grid-cols-2 gap-2">
                 {ANIMATED_PRESETS.map((preset, i) => (
                   <button
                     key={i}
-                    onClick={() => { onSelect(encodeAnimatedBanner(preset.animation)); onOpenChange(false); }}
+                    onClick={() => { onSelect(encodeAnimatedBanner(preset.image, preset.animation)); onOpenChange(false); }}
                     className="h-20 rounded-xl transition-transform hover:scale-105 border-2 border-transparent hover:border-primary overflow-hidden relative"
-                    style={{
-                      background: preset.animation,
-                      ...preset.style,
-                      animation: 'bannerShift 4s ease infinite',
-                    }}
                   >
+                    <img
+                      src={preset.image}
+                      alt={preset.label}
+                      className={`w-full h-full object-cover banner-anim-${preset.animation}`}
+                    />
                     <span className="absolute bottom-1 left-2 text-[10px] font-medium text-white drop-shadow-lg">{preset.label}</span>
                   </button>
                 ))}
@@ -174,12 +151,31 @@ export function BannerSelector({ open, onOpenChange, onSelect }: Props) {
         />
       )}
 
-      {/* Keyframes for animated banners */}
+      {/* Keyframes for live wallpaper animations */}
       <style>{`
-        @keyframes bannerShift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
+        @keyframes bannerSlowZoom {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); }
+        }
+        @keyframes bannerSlowPan {
+          0% { transform: scale(1.2) translateX(-5%); }
+          50% { transform: scale(1.2) translateX(5%); }
+          100% { transform: scale(1.2) translateX(-5%); }
+        }
+        @keyframes bannerSlowPulse {
+          0% { transform: scale(1); filter: brightness(1); }
+          50% { transform: scale(1.08); filter: brightness(1.15); }
+          100% { transform: scale(1); filter: brightness(1); }
+        }
+        .banner-anim-slowZoom {
+          animation: bannerSlowZoom 12s ease-in-out infinite;
+        }
+        .banner-anim-slowPan {
+          animation: bannerSlowPan 14s ease-in-out infinite;
+        }
+        .banner-anim-slowPulse {
+          animation: bannerSlowPulse 10s ease-in-out infinite;
         }
       `}</style>
     </>

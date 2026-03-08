@@ -132,10 +132,20 @@ export default function Profile() {
     else item.onClick();
   };
 
-  const isAnimatedBanner = profileData.banner_url?.startsWith('animated:');
+  const animatedBanner = profileData.banner_url ? (() => {
+    try {
+      if (profileData.banner_url?.startsWith('animated:')) {
+        const parsed = JSON.parse(profileData.banner_url.replace('animated:', ''));
+        return parsed as { image: string; animation: string };
+      }
+    } catch { /* ignore */ }
+    return null;
+  })() : null;
+
+  const bannerIsImage = profileData.banner_url && !animatedBanner && !profileData.banner_url.startsWith('linear-gradient');
   const bannerStyle: React.CSSProperties = profileData.banner_url
-    ? isAnimatedBanner
-      ? { background: profileData.banner_url.replace('animated:', ''), backgroundSize: '200% 200%', animation: 'bannerShift 4s ease infinite' }
+    ? animatedBanner
+      ? {} // handled by img element
       : profileData.banner_url.startsWith('linear-gradient')
         ? { background: profileData.banner_url }
         : { backgroundImage: `url(${profileData.banner_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
@@ -167,16 +177,51 @@ export default function Profile() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card overflow-hidden">
             {/* Banner */}
             <div
-              className="h-32 bg-gradient-to-r from-primary/40 to-accent/30 relative cursor-pointer group"
-              style={bannerStyle}
+              className="h-32 bg-gradient-to-r from-primary/40 to-accent/30 relative cursor-pointer group overflow-hidden"
+              style={!animatedBanner ? bannerStyle : {}}
               onClick={() => isAuthenticated && setShowBannerSelector(true)}
             >
+              {animatedBanner && (
+                <img
+                  src={animatedBanner.image}
+                  alt="Banner"
+                  className={`absolute inset-0 w-full h-full object-cover banner-anim-${animatedBanner.animation}`}
+                />
+              )}
               {isAuthenticated && (
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
                   <ImageIcon className="h-5 w-5 text-white" />
                 </div>
               )}
             </div>
+
+            {/* Live wallpaper keyframes */}
+            <style>{`
+              @keyframes bannerSlowZoom {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.15); }
+                100% { transform: scale(1); }
+              }
+              @keyframes bannerSlowPan {
+                0% { transform: scale(1.2) translateX(-5%); }
+                50% { transform: scale(1.2) translateX(5%); }
+                100% { transform: scale(1.2) translateX(-5%); }
+              }
+              @keyframes bannerSlowPulse {
+                0% { transform: scale(1); filter: brightness(1); }
+                50% { transform: scale(1.08); filter: brightness(1.15); }
+                100% { transform: scale(1); filter: brightness(1); }
+              }
+              .banner-anim-slowZoom {
+                animation: bannerSlowZoom 12s ease-in-out infinite;
+              }
+              .banner-anim-slowPan {
+                animation: bannerSlowPan 14s ease-in-out infinite;
+              }
+              .banner-anim-slowPulse {
+                animation: bannerSlowPulse 10s ease-in-out infinite;
+              }
+            `}</style>
 
             {/* Avatar row – overlaps banner */}
             <div className="px-4 -mt-12">
