@@ -304,6 +304,17 @@ export const getOnTheAirTV = async (page = 1) => {
   );
 };
 
+export const getTVShowsByGenre = async (genreId: number, page = 1, sortBy = 'popularity.desc') => {
+  return fetchTMDB<{ results: TVShow[]; page: number; total_pages: number }>(
+    '/discover/tv',
+    {
+      with_genres: genreId.toString(),
+      page: page.toString(),
+      sort_by: sortBy,
+    }
+  );
+};
+
 // Multi-search (movies + TV + people in one call)
 export interface MultiSearchResult {
   id: number;

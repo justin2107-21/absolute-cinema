@@ -234,6 +234,20 @@ export async function getMangaByMood(mood: string, page = 1): Promise<AniListMed
   return data?.Page?.media || [];
 }
 
+export async function getAnimeByGenre(genre: string, page = 1): Promise<AniListMedia[]> {
+  const query = `
+    query ($page: Int, $perPage: Int, $genres: [String]) {
+      Page(page: $page, perPage: $perPage) {
+        media(genre_in: $genres, type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
+          ${MEDIA_FIELDS}
+        }
+      }
+    }
+  `;
+  const data = await anilistFetch<{ Page: { media: AniListMedia[] } }>(query, { page, perPage: 20, genres: [genre] });
+  return data?.Page?.media || [];
+}
+
 export async function searchAnime(searchTerm: string): Promise<AniListMedia[]> {
   const query = `
     query ($search: String) {
