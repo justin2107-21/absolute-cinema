@@ -59,8 +59,14 @@ export default function Search() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 
-  const movieResults = multiResults?.results?.filter(r => r.media_type === 'movie').map(multiToMovie) || [];
-  const tvResults = multiResults?.results?.filter(r => r.media_type === 'tv').map(multiToMovie) || [];
+  // Filter out animation (genre 16) from TMDB results to avoid duplicates with AniList anime
+  const ANIMATION_GENRE_ID = 16;
+  const movieResults = multiResults?.results
+    ?.filter(r => r.media_type === 'movie' && !(r.genre_ids || []).includes(ANIMATION_GENRE_ID))
+    .map(multiToMovie) || [];
+  const tvResults = multiResults?.results
+    ?.filter(r => r.media_type === 'tv' && !(r.genre_ids || []).includes(ANIMATION_GENRE_ID))
+    .map(multiToMovie) || [];
   const animeUnified = animeResults?.map(anilistToUnified) || [];
 
   // Filter-based results (no search)
