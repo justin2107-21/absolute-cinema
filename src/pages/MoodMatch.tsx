@@ -183,6 +183,7 @@ export default function MoodMatch() {
               imageUrl: meta.imageUrl || undefined,
               identifiedTitle: meta.identifiedTitle || undefined,
               identifiedType: meta.identifiedType || undefined,
+              tmdbMetadata: meta.tmdbMetadata || undefined,
             };
           }));
         }
