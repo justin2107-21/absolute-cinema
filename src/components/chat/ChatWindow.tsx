@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Paperclip, Image as ImageIcon, Smile, Info, X, Check, CheckCheck, FileText, Link2, Edit3 } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, Image as ImageIcon, Smile, Info, X, Check, CheckCheck, FileText, Link2, Edit3, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChat, type DmMessage } from '@/hooks/useChat';
 import { GifPicker } from './GifPicker';
+import { ChatThemePicker, getChatTheme, type ChatTheme } from './ChatThemePicker';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -49,6 +50,8 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
   const [nickname, setNickname] = useState<string | null>(null);
   const [editingNickname, setEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
+  const [chatTheme, setChatThemeState] = useState<ChatTheme>(() => getChatTheme(conversationId));
+  const [showThemes, setShowThemes] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -214,6 +217,19 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
               </div>
 
               <div className="space-y-1">
+                <button onClick={() => setShowThemes(!showThemes)}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors text-sm">
+                  <Palette className="h-4 w-4 text-muted-foreground" /> Themes
+                </button>
+                {showThemes && (
+                  <div className="px-1 pb-2">
+                    <ChatThemePicker
+                      conversationId={conversationId}
+                      currentThemeId={chatTheme.id}
+                      onSelect={(theme) => setChatThemeState(theme)}
+                    />
+                  </div>
+                )}
                 <button onClick={() => navigate(`/user/${otherUser.user_id}`)}
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors text-sm">
                   <Info className="h-4 w-4 text-muted-foreground" /> View Profile
@@ -317,8 +333,8 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
                 <div className={`max-w-[70%] ${isMine ? 'items-end' : 'items-start'}`}>
                   <div className={`px-3 py-2 rounded-2xl text-sm ${
                     isMine
-                      ? 'bg-primary text-primary-foreground rounded-br-sm'
-                      : 'bg-secondary text-foreground rounded-bl-sm'
+                      ? `${chatTheme.sentBubble} ${chatTheme.sentText} rounded-br-sm`
+                      : `${chatTheme.receivedBubble} ${chatTheme.receivedText} rounded-bl-sm`
                   }`}>
                     {(msg.message_type === 'image' || msg.message_type === 'gif') && msg.file_url ? (
                       <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
