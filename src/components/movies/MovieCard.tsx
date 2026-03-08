@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Plus, Star, Check } from 'lucide-react';
-import { Movie, getImageUrl, getMovieDetails } from '@/lib/tmdb';
+import { Movie, getImageUrl, getMovieDetails, getTVDetails } from '@/lib/tmdb';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -14,6 +14,8 @@ interface MovieCardProps {
   isInWatchlist?: boolean;
   isWatched?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  /** Set to 'tv' when displaying TV show results so hover details fetch the correct content */
+  mediaType?: 'movie' | 'tv';
 }
 
 export function MovieCard({
@@ -24,13 +26,14 @@ export function MovieCard({
   isInWatchlist = false,
   isWatched = false,
   size = 'md',
+  mediaType = 'movie',
 }: MovieCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const posterUrl = getImageUrl(movie.poster_path, size === 'sm' ? 'w200' : 'w300');
 
   const { data: movieDetails } = useQuery({
-    queryKey: ['movieDetails', movie.id],
-    queryFn: () => getMovieDetails(movie.id),
+    queryKey: ['contentDetails', mediaType, movie.id],
+    queryFn: () => mediaType === 'tv' ? getTVDetails(movie.id) : getMovieDetails(movie.id),
     enabled: isHovered,
   });
 
