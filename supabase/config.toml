@@ -2,3 +2,6 @@ project_id = "lazlthrkidnzibezafsl"
 
 [functions.mood-chat]
 verify_jwt = false
+
+[functions.analyze-image]
+verify_jwt = false
