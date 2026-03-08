@@ -826,8 +826,34 @@ export default function MoodMatch() {
                                 </div>
                               )}
 
-                              {/* Inline recommendations */}
-                              {chat.recommendations && renderInlineRecs(chat.recommendations)}
+                              {/* VIEW RECOMMENDED toggle button */}
+                              {chat.recommendations && !chat.recsVisible && (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  className="mt-3 w-full gap-2"
+                                  onClick={() => toggleRecsVisibility(index)}
+                                >
+                                  <Film className="h-4 w-4" />
+                                  View Recommended
+                                </Button>
+                              )}
+
+                              {/* Inline recommendations (collapsible) */}
+                              {chat.recommendations && chat.recsVisible && (
+                                <>
+                                  {renderInlineRecs(chat.recommendations)}
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="mt-3 w-full gap-2 text-xs"
+                                    onClick={() => toggleRecsVisibility(index)}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                    Hide Recommendations
+                                  </Button>
+                                </>
+                              )}
 
                               {/* Action buttons for identified content */}
                               {chat.role === 'assistant' && renderIdentifiedActions(chat)}
