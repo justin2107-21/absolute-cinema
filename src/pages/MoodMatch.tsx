@@ -1,17 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   Smile, Frown, Zap, Heart, PartyPopper, Coffee, Sparkles, Send, ArrowLeft, Brain,
   Moon, CloudRain, Flame, Lightbulb, Meh, Search, Compass, HeartCrack, Battery,
-  Film, Tv, BookOpen, TrendingUp, Star, Eye, AlertCircle
+  Film, Tv, BookOpen, TrendingUp, Star, Eye, AlertCircle, Pencil, Trash2,
+  Paperclip, Image as ImageIcon, MoreVertical, X
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MovieCard } from '@/components/movies/MovieCard';
 import { AnimeCard } from '@/components/anime/AnimeCard';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { getMoviesByMood } from '@/lib/tmdb';
 import { getAnimeByMood, getMangaByMood, type AniListMedia } from '@/lib/anilist';
 import { getMoodRecommendations, type MoodPreferences, type MoodRecommendations } from '@/lib/moodRecommendations';
@@ -23,7 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-// ─── QUICK MOOD PICKS CONFIG (static, no OpenAI) ───
+// ─── QUICK MOOD PICKS CONFIG (static, no AI) ───
 const moods = [
   { id: 'happy', label: 'Happy', icon: Smile, color: 'text-mood-happy' },
   { id: 'sad', label: 'Sad', icon: Frown, color: 'text-mood-sad' },
@@ -48,35 +51,38 @@ interface LuminaMessage {
   role: 'user' | 'assistant';
   content: string;
   showRecommendations?: boolean;
-  mood?: string;
   preferences?: MoodPreferences;
   recommendations?: MoodRecommendations | null;
   isLoadingRecs?: boolean;
   isError?: boolean;
+  imageUrl?: string;
+  isEditing?: boolean;
 }
 
 export default function MoodMatch() {
   // ─── HARD STATE SEPARATION ───
   const [quickMoodMode, setQuickMoodMode] = useState(false);
-  const [luminaChatMode, setLuminaChatMode] = useState(false);
-
-  // Quick Mood state (completely independent)
   const [quickMoodId, setQuickMoodId] = useState<string | null>(null);
   const [quickMoodTab, setQuickMoodTab] = useState<'movies' | 'anime' | 'manga'>('movies');
 
-  // Lumina AI state (completely independent)
+  // Lumina AI state
   const [chatInput, setChatInput] = useState('');
   const [chatHistory, setChatHistory] = useState<LuminaMessage[]>([]);
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const navigate = useNavigate();
   const { addToWatchlist, markAsWatched, isInWatchlist, isWatched } = useWatchlist();
   const { setMood } = useMood();
   const { isAuthenticated, user } = useAuth();
 
-  // ─── QUICK MOOD QUERIES (only when quickMoodMode is true) ───
+  // ─── QUICK MOOD QUERIES ───
   const { data: moodMovies, isLoading: isLoadingMovies } = useQuery({
     queryKey: ['quickMoodMovies', quickMoodId],
     queryFn: () => getMoviesByMood(quickMoodId!),
@@ -93,7 +99,6 @@ export default function MoodMatch() {
     enabled: !!quickMoodId && quickMoodMode && quickMoodTab === 'manga',
   });
 
-  // ─── LOAD LUMINA CONVERSATION (on mount) ───
   useEffect(() => {
     if (isAuthenticated && user) loadConversation();
   }, [isAuthenticated, user]);
@@ -144,17 +149,17 @@ export default function MoodMatch() {
     }
   };
 
-  const createOrUpdateConversation = async (mood?: string): Promise<string> => {
+  const createOrUpdateConversation = async (): Promise<string> => {
     if (!user) return '';
     try {
       if (conversationId) {
         await supabase.from('chat_conversations')
-          .update({ mood, updated_at: new Date().toISOString() })
+          .update({ updated_at: new Date().toISOString() })
           .eq('id', conversationId);
         return conversationId;
       } else {
         const { data } = await supabase.from('chat_conversations')
-          .insert({ user_id: user.id, mood }).select().single();
+          .insert({ user_id: user.id }).select().single();
         if (data) { setConversationId(data.id); return data.id; }
       }
     } catch (error) {
@@ -163,43 +168,143 @@ export default function MoodMatch() {
     return '';
   };
 
-  // ─── QUICK MOOD HANDLER (no OpenAI, no Lumina) ───
   const handleQuickMoodSelect = (moodId: string) => {
     setQuickMoodId(moodId);
     setQuickMoodMode(true);
-    setLuminaChatMode(false); // Ensure isolation
     setMood(moodId as any);
   };
 
-  // ─── LUMINA AI: Show Personalized Recommendations ───
   const handleShowRecommendations = async (messageIndex: number, prefs: MoodPreferences) => {
-    setChatHistory(prev => prev.map((m, i) => 
+    setChatHistory(prev => prev.map((m, i) =>
       i === messageIndex ? { ...m, isLoadingRecs: true } : m
     ));
     try {
       const recs = await getMoodRecommendations(prefs);
-      setChatHistory(prev => prev.map((m, i) => 
+      setChatHistory(prev => prev.map((m, i) =>
         i === messageIndex ? { ...m, recommendations: recs, isLoadingRecs: false, showRecommendations: false } : m
       ));
     } catch (error) {
       console.error('Error fetching recommendations:', error);
       toast.error('Failed to load recommendations.');
-      setChatHistory(prev => prev.map((m, i) => 
+      setChatHistory(prev => prev.map((m, i) =>
         i === messageIndex ? { ...m, isLoadingRecs: false } : m
       ));
     }
   };
 
-  // ─── LUMINA AI: Chat Submit (100% OpenAI, NO FALLBACK to Quick Mood) ───
+  // ─── IMAGE HANDLING ───
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5MB.');
+      return;
+    }
+
+    // Convert to base64 for vision API
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      const userMessage: LuminaMessage = {
+        role: 'user',
+        content: chatInput.trim() || 'What movie/anime/show is this from?',
+        imageUrl: base64,
+      };
+      setChatHistory(prev => [...prev, userMessage]);
+      setChatInput('');
+      setIsAiThinking(true);
+
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+        const response = await fetch(`${supabaseUrl}/functions/v1/analyze-image`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseKey}`,
+            'apikey': supabaseKey,
+          },
+          body: JSON.stringify({
+            imageUrl: base64,
+            message: chatInput.trim() || 'What movie/anime/show is this from?',
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || 'Image analysis failed');
+
+        const aiMessage: LuminaMessage = { role: 'assistant', content: data.message };
+        setChatHistory(prev => [...prev, aiMessage]);
+
+        if (isAuthenticated && user) {
+          const convId = await createOrUpdateConversation();
+          await saveMessage(userMessage, convId);
+          await saveMessage(aiMessage, convId);
+        }
+      } catch (error: any) {
+        console.error('Image analysis error:', error);
+        setChatHistory(prev => [...prev, {
+          role: 'assistant',
+          content: "I couldn't analyze the image right now. Please try again.",
+          isError: true,
+        }]);
+      } finally {
+        setIsAiThinking(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleImageUpload(file);
+        return;
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = e.dataTransfer?.files;
+    if (files?.[0]?.type.startsWith('image/')) {
+      handleImageUpload(files[0]);
+    }
+  };
+
+  // ─── MESSAGE ACTIONS ───
+  const handleEditMessage = (index: number) => {
+    setEditingIndex(index);
+    setEditContent(chatHistory[index].content);
+  };
+
+  const handleSaveEdit = async (index: number) => {
+    setChatHistory(prev => prev.map((m, i) =>
+      i === index ? { ...m, content: editContent } : m
+    ));
+    setEditingIndex(null);
+    setEditContent('');
+  };
+
+  const handleDeleteMessage = (index: number) => {
+    setChatHistory(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // ─── LUMINA AI CHAT ───
   const handleChatSubmit = async () => {
     if (!chatInput.trim()) return;
 
-    // Activate Lumina mode, deactivate Quick Mood
-    setLuminaChatMode(true);
-    setQuickMoodMode(false);
-
     const userMessage: LuminaMessage = { role: 'user', content: chatInput };
-    setChatHistory((prev) => [...prev, userMessage]);
+    setChatHistory(prev => [...prev, userMessage]);
+    const inputText = chatInput;
     setChatInput('');
     setIsAiThinking(true);
 
@@ -215,80 +320,76 @@ export default function MoodMatch() {
           'apikey': supabaseKey,
         },
         body: JSON.stringify({
-          message: chatInput,
-          conversationHistory: chatHistory.map((m) => ({ role: m.role, content: m.content })),
+          message: inputText,
+          conversationHistory: chatHistory.map(m => ({ role: m.role, content: m.content })),
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error('RATE_LIMIT');
-        }
+        if (response.status === 429) throw new Error('RATE_LIMIT');
         throw new Error(data?.error || `Server error (${response.status})`);
       }
 
-      const prefs: MoodPreferences = data.preferences;
       const aiMessage: LuminaMessage = {
         role: 'assistant',
         content: data.message,
-        showRecommendations: true,
-        mood: data.mood,
-        preferences: prefs,
+        // Only show recommendation button when AI detected recommendation intent AND returned preferences
+        showRecommendations: data.hasRecommendations && !!data.preferences,
+        preferences: data.preferences || undefined,
       };
 
-      setChatHistory((prev) => [...prev, aiMessage]);
-
-      // Update global theme
-      if (data.mood) setMood(data.mood as any);
+      setChatHistory(prev => [...prev, aiMessage]);
 
       // Persist to DB
       if (isAuthenticated && user) {
-        const convId = await createOrUpdateConversation(data.mood);
+        const convId = await createOrUpdateConversation();
         await saveMessage(userMessage, convId);
         await saveMessage(aiMessage, convId);
       }
     } catch (error: any) {
       console.error('Lumina AI error:', error);
       const isRateLimit = error?.message === 'RATE_LIMIT';
-      const errorMessage: LuminaMessage = {
+      setChatHistory(prev => [...prev, {
         role: 'assistant',
         content: isRateLimit
-          ? "I'm experiencing high demand right now. Please wait a moment and try again — I'll be ready to help you shortly!"
-          : "I'm having trouble connecting right now. Please try again in a moment — I want to give you the best personalized recommendations.",
+          ? "I'm experiencing high demand right now. Please wait a moment and try again!"
+          : "I'm having trouble connecting right now. Please try again in a moment.",
         isError: true,
-      };
-      setChatHistory((prev) => [...prev, errorMessage]);
-      toast.error(isRateLimit
-        ? 'Rate limit reached. Please wait a moment and try again.'
-        : 'Lumina AI connection issue. Please try again.');
+      }]);
+      toast.error(isRateLimit ? 'Rate limit reached.' : 'Connection issue.');
     } finally {
       setIsAiThinking(false);
     }
   };
 
-  const handleAnimeClick = (anime: AniListMedia) => {
-    navigate(`/anime/${anime.id}`);
-  };
+  const handleAnimeClick = (anime: AniListMedia) => navigate(`/anime/${anime.id}`);
 
   const goHome = () => {
     setQuickMoodMode(false);
-    setLuminaChatMode(false);
     setQuickMoodId(null);
     setMood('default');
   };
 
-  const currentMoodConfig = moods.find((m) => m.id === quickMoodId);
+  const currentMoodConfig = moods.find(m => m.id === quickMoodId);
 
-  // ─── INLINE RECS RENDERER (Lumina only) ───
+  // Auto-resize textarea
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setChatInput(e.target.value);
+    const el = e.target;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  };
+
+  // ─── INLINE RECS RENDERER ───
   const renderInlineRecs = (recs: MoodRecommendations) => (
     <div className="space-y-5 mt-3">
       {recs.popular.length > 0 && (
         <div className="space-y-2">
           <h4 className="font-semibold flex items-center gap-1.5 text-xs text-primary"><Star className="h-3.5 w-3.5" /> Popular</h4>
           <div className="grid grid-cols-3 gap-2">
-            {recs.popular.slice(0, 6).map((movie) => (
+            {recs.popular.slice(0, 6).map(movie => (
               <MovieCard key={movie.id} movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
             ))}
           </div>
@@ -298,7 +399,7 @@ export default function MoodMatch() {
         <div className="space-y-2">
           <h4 className="font-semibold flex items-center gap-1.5 text-xs text-primary"><TrendingUp className="h-3.5 w-3.5" /> Trending</h4>
           <div className="grid grid-cols-3 gap-2">
-            {recs.trending.slice(0, 6).map((movie) => (
+            {recs.trending.slice(0, 6).map(movie => (
               <MovieCard key={movie.id} movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
             ))}
           </div>
@@ -308,7 +409,7 @@ export default function MoodMatch() {
         <div className="space-y-2">
           <h4 className="font-semibold flex items-center gap-1.5 text-xs text-primary"><Eye className="h-3.5 w-3.5" /> Hidden Gems</h4>
           <div className="grid grid-cols-3 gap-2">
-            {recs.underrated.slice(0, 6).map((movie) => (
+            {recs.underrated.slice(0, 6).map(movie => (
               <MovieCard key={movie.id} movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
             ))}
           </div>
@@ -318,7 +419,7 @@ export default function MoodMatch() {
         <div className="space-y-2">
           <h4 className="font-semibold flex items-center gap-1.5 text-xs text-primary"><Tv className="h-3.5 w-3.5" /> TV Series</h4>
           <div className="grid grid-cols-3 gap-2">
-            {recs.tvSeries.slice(0, 6).map((show) => (
+            {recs.tvSeries.slice(0, 6).map(show => (
               <div key={show.id} className="cursor-pointer" onClick={() => navigate(`/tv/${show.id}`)}>
                 <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-muted">
                   {show.poster_path ? (
@@ -327,8 +428,8 @@ export default function MoodMatch() {
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground"><Tv className="h-6 w-6" /></div>
                   )}
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
-                    <p className="text-white text-[10px] font-medium line-clamp-2">{show.name}</p>
-                    <p className="text-white/70 text-[9px]">⭐ {show.vote_average.toFixed(1)}</p>
+                    <p className="text-foreground text-[10px] font-medium line-clamp-2">{show.name}</p>
+                    <p className="text-muted-foreground text-[9px]">⭐ {show.vote_average.toFixed(1)}</p>
                   </div>
                 </div>
               </div>
@@ -339,7 +440,6 @@ export default function MoodMatch() {
     </div>
   );
 
-  // ─── DETERMINE WHICH VIEW TO SHOW ───
   const showingHome = !quickMoodMode;
 
   return (
@@ -360,7 +460,7 @@ export default function MoodMatch() {
                   Lumina AI
                 </motion.h1>
                 <p className="text-sm text-muted-foreground">
-                  AI-powered emotional analysis & personalized recommendations
+                  Your personal entertainment companion
                 </p>
               </div>
             </div>
@@ -369,111 +469,238 @@ export default function MoodMatch() {
           <AnimatePresence mode="wait">
             {showingHome ? (
               <motion.div key="home-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-8">
-                {/* ─── LUMINA AI CHAT INTERFACE ─── */}
-                <section className="px-4 space-y-4">
-                  <div className="glass-card p-4 space-y-4">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <Brain className="h-4 w-4 text-primary" />
-                      Talk to Lumina
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Tell me how you're feeling and I'll find the perfect content personalized just for you.
-                    </p>
+                {/* ─── LUMINA AI FULL CHAT INTERFACE ─── */}
+                <section className="px-4">
+                  <div
+                    className={cn(
+                      "rounded-2xl border border-border bg-card/80 backdrop-blur-sm flex flex-col transition-all",
+                      isDragOver && "ring-2 ring-primary border-primary"
+                    )}
+                    style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}
+                    onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={handleDrop}
+                  >
+                    {/* Chat header */}
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                        <Sparkles className="h-4 w-4 text-primary-foreground" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm">Lumina</p>
+                        <p className="text-xs text-muted-foreground">Online • Ready to help</p>
+                      </div>
+                    </div>
 
-                    {chatHistory.length > 0 && (
-                      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                    {/* Messages area */}
+                    <ScrollArea className="flex-1 px-4 py-4">
+                      <div className="space-y-4 max-w-2xl mx-auto">
+                        {/* Welcome message if no history */}
+                        {chatHistory.length === 0 && (
+                          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
+                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-accent flex-shrink-0 flex items-center justify-center">
+                              <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+                            </div>
+                            <div className="bg-secondary rounded-2xl rounded-tl-md px-4 py-3 max-w-[85%]">
+                              <p className="text-sm leading-relaxed">
+                                Hello! 👋 I'm <strong>Lumina</strong>, your entertainment companion. I can help you:
+                              </p>
+                              <div className="mt-2 space-y-1">
+                                <p className="text-sm">🎬 Get personalized recommendations</p>
+                                <p className="text-sm">💬 Chat about movies, shows & anime</p>
+                                <p className="text-sm">📸 Identify scenes from screenshots</p>
+                                <p className="text-sm">🔎 Search for specific titles</p>
+                              </div>
+                              <p className="text-sm mt-2 text-muted-foreground">What would you like to do?</p>
+                            </div>
+                          </motion.div>
+                        )}
+
                         {chatHistory.map((chat, index) => (
                           <motion.div
                             key={index}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.05 }}
                             className={cn(
-                              "p-3 rounded-xl text-sm",
-                              chat.role === 'user' ? "bg-primary/20 ml-8" : "bg-secondary mr-4",
-                              chat.isError && "border border-destructive/30"
+                              "flex gap-3 group",
+                              chat.role === 'user' ? "flex-row-reverse" : ""
                             )}
                           >
-                            {chat.isError && (
-                              <div className="flex items-center gap-1.5 text-destructive text-xs mb-1">
-                                <AlertCircle className="h-3.5 w-3.5" /> Connection issue
-                              </div>
-                            )}
-                            {chat.content}
-
-                            {/* Preference badges */}
-                            {chat.role === 'assistant' && chat.preferences && !chat.isError && (
-                              <div className="mt-2 flex flex-wrap gap-1">
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
-                                  {chat.preferences.primary_emotion}
-                                </span>
-                                {chat.preferences.language && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">
-                                    {chat.preferences.language}
-                                  </span>
-                                )}
-                                {chat.preferences.genres?.slice(0, 3).map((g) => (
-                                  <span key={g} className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{g}</span>
-                                ))}
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                  {chat.preferences.tone}
-                                </span>
+                            {/* Avatar */}
+                            {chat.role === 'assistant' && (
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-accent flex-shrink-0 flex items-center justify-center">
+                                <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
                               </div>
                             )}
 
-                            {/* Show Personalized Recommendations button */}
-                            {chat.role === 'assistant' && chat.showRecommendations && chat.preferences && !chat.recommendations && !chat.isError && (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                className="mt-3 w-full gap-2"
-                                disabled={chat.isLoadingRecs}
-                                onClick={() => handleShowRecommendations(index, chat.preferences!)}
-                              >
-                                {chat.isLoadingRecs ? (
-                                  <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent" />
-                                    Finding personalized picks...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Search className="h-4 w-4" />
-                                    Show Personalized Recommendations
-                                  </>
-                                )}
-                              </Button>
-                            )}
+                            <div className={cn(
+                              "relative max-w-[85%] rounded-2xl px-4 py-3 text-sm",
+                              chat.role === 'user'
+                                ? "bg-primary text-primary-foreground rounded-tr-md"
+                                : "bg-secondary rounded-tl-md",
+                              chat.isError && "border border-destructive/30"
+                            )}>
+                              {chat.isError && (
+                                <div className="flex items-center gap-1.5 text-destructive text-xs mb-1">
+                                  <AlertCircle className="h-3.5 w-3.5" /> Connection issue
+                                </div>
+                              )}
 
-                            {/* Inline recommendations */}
-                            {chat.recommendations && renderInlineRecs(chat.recommendations)}
+                              {/* Image attachment */}
+                              {chat.imageUrl && (
+                                <div className="mb-2 rounded-lg overflow-hidden">
+                                  <img src={chat.imageUrl} alt="Uploaded" className="max-h-48 rounded-lg object-contain" />
+                                </div>
+                              )}
+
+                              {/* Editable content */}
+                              {editingIndex === index ? (
+                                <div className="space-y-2">
+                                  <Textarea
+                                    value={editContent}
+                                    onChange={(e) => setEditContent(e.target.value)}
+                                    className="min-h-[60px] bg-background/50 text-foreground"
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button size="sm" onClick={() => handleSaveEdit(index)}>Save</Button>
+                                    <Button size="sm" variant="ghost" onClick={() => setEditingIndex(null)}>Cancel</Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="whitespace-pre-wrap leading-relaxed">{chat.content}</p>
+                              )}
+
+                              {/* NO mood tags — removed entirely */}
+
+                              {/* Show Personalized Recommendations button */}
+                              {chat.role === 'assistant' && chat.showRecommendations && chat.preferences && !chat.recommendations && !chat.isError && (
+                                <Button
+                                  size="sm"
+                                  variant={chat.role === 'assistant' ? "default" : "secondary"}
+                                  className="mt-3 w-full gap-2"
+                                  disabled={chat.isLoadingRecs}
+                                  onClick={() => handleShowRecommendations(index, chat.preferences!)}
+                                >
+                                  {chat.isLoadingRecs ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent" />
+                                      Finding picks...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Search className="h-4 w-4" />
+                                      Show Personalized Recommendations
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+
+                              {/* Inline recommendations */}
+                              {chat.recommendations && renderInlineRecs(chat.recommendations)}
+
+                              {/* Message actions (edit/delete) */}
+                              {chat.role === 'user' && editingIndex !== index && (
+                                <div className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                                        <MoreVertical className="h-3 w-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start">
+                                      <DropdownMenuItem onClick={() => handleEditMessage(index)}>
+                                        <Pencil className="h-3 w-3 mr-2" /> Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive">
+                                        <Trash2 className="h-3 w-3 mr-2" /> Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              )}
+                            </div>
                           </motion.div>
                         ))}
+
                         {isAiThinking && (
-                          <div className="p-3 rounded-xl bg-secondary mr-8">
-                            <div className="flex items-center gap-2">
-                              <div className="animate-pulse flex gap-1">
-                                <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
-                                <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
-                                <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
+                          <div className="flex gap-3">
+                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-accent flex-shrink-0 flex items-center justify-center">
+                              <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+                            </div>
+                            <div className="bg-secondary rounded-2xl rounded-tl-md px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+                                  <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+                                  <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
+                                </div>
+                                <span className="text-sm text-muted-foreground">Lumina is thinking...</span>
                               </div>
-                              <span className="text-sm text-muted-foreground">Lumina is thinking...</span>
                             </div>
                           </div>
                         )}
+
+                        {isDragOver && (
+                          <div className="flex items-center justify-center py-8 border-2 border-dashed border-primary rounded-xl bg-primary/5">
+                            <div className="text-center">
+                              <ImageIcon className="h-8 w-8 text-primary mx-auto mb-2" />
+                              <p className="text-sm text-muted-foreground">Drop image to analyze</p>
+                            </div>
+                          </div>
+                        )}
+
                         <div ref={chatEndRef} />
                       </div>
-                    )}
+                    </ScrollArea>
 
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="e.g., I feel sad and want Filipino comedy movies..."
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !isAiThinking && handleChatSubmit()}
-                        disabled={isAiThinking}
-                      />
-                      <Button size="icon" onClick={handleChatSubmit} disabled={isAiThinking || !chatInput.trim()}>
-                        <Send className="h-4 w-4" />
-                      </Button>
+                    {/* Input area */}
+                    <div className="px-4 py-3 border-t border-border">
+                      <div className="flex items-end gap-2 max-w-2xl mx-auto">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          className="hidden"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImageUpload(file);
+                            e.target.value = '';
+                          }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 flex-shrink-0"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <Paperclip className="h-5 w-5 text-muted-foreground" />
+                        </Button>
+                        <Textarea
+                          ref={textareaRef}
+                          placeholder="Ask Lumina anything about movies, shows, anime..."
+                          value={chatInput}
+                          onChange={handleTextareaChange}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey && !isAiThinking) {
+                              e.preventDefault();
+                              handleChatSubmit();
+                            }
+                          }}
+                          onPaste={handlePaste}
+                          disabled={isAiThinking}
+                          className="min-h-[44px] max-h-[120px] resize-none rounded-xl bg-secondary border-0 focus-visible:ring-1"
+                          rows={1}
+                        />
+                        <Button
+                          size="icon"
+                          className="h-10 w-10 flex-shrink-0 rounded-xl"
+                          onClick={handleChatSubmit}
+                          disabled={isAiThinking || !chatInput.trim()}
+                        >
+                          <Send className="h-5 w-5" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -483,11 +710,11 @@ export default function MoodMatch() {
                   <div>
                     <h3 className="font-semibold">Quick Mood Picks (General Suggestions)</h3>
                     <p className="text-xs text-muted-foreground mt-1">
-                      These are general mood-based suggestions. For personalized recommendations, type how you're feeling above.
+                      These are general mood-based suggestions. For personalized recommendations, chat with Lumina above.
                     </p>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                    {moods.slice(0, 6).map((mood) => {
+                    {moods.slice(0, 6).map(mood => {
                       const Icon = mood.icon;
                       return (
                         <motion.button key={mood.id} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
@@ -503,7 +730,7 @@ export default function MoodMatch() {
                   <details className="group">
                     <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">Show more moods...</summary>
                     <div className="grid grid-cols-3 gap-3 mt-3">
-                      {moods.slice(6).map((mood) => {
+                      {moods.slice(6).map(mood => {
                         const Icon = mood.icon;
                         return (
                           <motion.button key={mood.id} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
@@ -520,7 +747,7 @@ export default function MoodMatch() {
                 </section>
               </motion.div>
             ) : (
-              /* ─── QUICK MOOD RESULTS VIEW (no OpenAI, no Lumina) ─── */
+              /* ─── QUICK MOOD RESULTS VIEW ─── */
               <motion.div key="quick-mood-view" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                 <section className="px-4">
                   <div className="glass-card p-4 flex items-center gap-3">

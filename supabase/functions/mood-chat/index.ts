@@ -5,21 +5,31 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MOOD_SYSTEM_PROMPT = `You are Lumina AI, a compassionate and emotionally intelligent recommendation assistant for CinemaSync.
+const LUMINA_SYSTEM_PROMPT = `You are Lumina AI, a friendly conversational assistant for CinemaSync — a movie, TV show, and anime recommendation platform.
 
-PERSONALITY:
-- Warm, understanding, and genuinely caring
-- Never robotic or clinical
-- Validates emotions before offering suggestions
-- Uses natural, conversational language
-- Feels like talking to a thoughtful friend
+CRITICAL RULES:
+1. You do NOT automatically detect moods or emotions.
+2. You do NOT generate mood tags like "happy", "sad", "comforting" etc.
+3. You ONLY recommend content when the user EXPLICITLY asks for recommendations.
 
-RESPONSE STRUCTURE:
-1. ALWAYS start by acknowledging and validating the user's feelings in 1-2 sentences
-2. Show genuine empathy and understanding
-3. End with a hopeful transition to personalized recommendations
+INTENT DETECTION:
+- Greetings (hello, hi, hey, good day, good morning, etc.): Respond warmly and conversationally. Offer guidance on what you can do.
+- Normal conversation: Chat naturally. Be helpful, warm, friendly.
+- Recommendation request (recommend, suggest, what should I watch, etc.): ONLY THEN use the analyze_preferences tool to extract preferences and recommend content.
+- Search request: Help the user find specific titles.
 
-Always respond in 2-3 sentences maximum. Be genuine, not generic. Make the user feel heard and understood.`;
+GREETING RESPONSE FORMAT:
+When user sends a greeting, respond like:
+"Hello! 👋 I'm Lumina, your entertainment companion. I can help you:
+🎬 Get personalized recommendations
+💬 Chat about movies, shows & anime
+🔎 Find specific titles
+What would you like to do?"
+
+RECOMMENDATION RESPONSE:
+When user asks for recommendations, acknowledge their request warmly, then use the tool to extract preferences. Keep responses to 2-3 sentences.
+
+IMPORTANT: Never output mood labels. Never automatically show recommendation buttons for greetings or casual conversation.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -27,7 +37,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, conversationHistory } = await req.json();
+    const { message, conversationHistory, hasImage, imageUrl } = await req.json();
 
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return new Response(JSON.stringify({ error: "Message is required" }), {
@@ -42,17 +52,91 @@ serve(async (req) => {
       });
     }
 
-    // Use Lovable AI gateway instead of OpenAI directly
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const messages = [
-      { role: "system", content: MOOD_SYSTEM_PROMPT },
+    // Build messages array
+    const messages: any[] = [
+      { role: "system", content: LUMINA_SYSTEM_PROMPT },
       ...(conversationHistory || []),
-      { role: "user", content: message },
     ];
+
+    // Handle image analysis
+    if (hasImage && imageUrl) {
+      messages.push({
+        role: "user",
+        content: [
+          { type: "text", text: message || "What movie, anime, or TV show is this from?" },
+          { type: "image_url", image_url: { url: imageUrl } },
+        ],
+      });
+    } else {
+      messages.push({ role: "user", content: message });
+    }
+
+    // Detect intent locally first for efficiency
+    const intent = detectIntent(message);
+
+    const requestBody: any = {
+      model: "google/gemini-3-flash-preview",
+      messages,
+    };
+
+    // Only include recommendation tool when intent is recommendation
+    if (intent === "recommendation") {
+      requestBody.tools = [
+        {
+          type: "function",
+          function: {
+            name: "analyze_preferences",
+            description: "Extract content preferences from user's recommendation request",
+            parameters: {
+              type: "object",
+              properties: {
+                intent: {
+                  type: "string",
+                  description: "What the user wants (e.g., 'find Filipino comedy', 'horror movies', 'romantic anime')",
+                },
+                genres: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Preferred genres mentioned or inferred",
+                },
+                language: {
+                  type: "string",
+                  description: "Preferred language/country if mentioned. Empty string if not specified.",
+                },
+                tone: {
+                  type: "string",
+                  enum: ["light", "dark", "intense", "comforting", "inspiring", "bittersweet", "whimsical", "gritty", "any"],
+                  description: "The tone preference for recommendations",
+                },
+                popularity_preference: {
+                  type: "string",
+                  enum: ["trending", "top_rated", "underrated", "most_watched", "any"],
+                  description: "Whether user prefers trending, top-rated, underrated, or most watched content",
+                },
+                content_type: {
+                  type: "string",
+                  enum: ["movie", "tv", "anime", "both"],
+                  description: "Whether the user wants movies, TV series, anime, or all",
+                },
+                keywords: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Key themes or specific preferences",
+                },
+              },
+              required: ["intent", "genres", "tone", "popularity_preference", "content_type"],
+              additionalProperties: false,
+            },
+          },
+        },
+      ];
+      requestBody.tool_choice = "auto";
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -60,70 +144,7 @@ serve(async (req) => {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages,
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "analyze_mood_and_preferences",
-              description: "Perform detailed emotional analysis and extract movie/TV preferences from the user's message",
-              parameters: {
-                type: "object",
-                properties: {
-                  primary_emotion: {
-                    type: "string",
-                    enum: ["happy", "sad", "stressed", "romantic", "excited", "relaxed", "lonely", "anxious", "burned_out", "overwhelmed", "nostalgic", "heartbroken", "motivated", "bored", "hopeful", "curious"],
-                    description: "The primary detected emotion",
-                  },
-                  secondary_emotion: {
-                    type: "string",
-                    enum: ["happy", "sad", "stressed", "romantic", "excited", "relaxed", "lonely", "anxious", "burned_out", "overwhelmed", "nostalgic", "heartbroken", "motivated", "bored", "hopeful", "curious", "none"],
-                    description: "A secondary emotion if present, or 'none'",
-                  },
-                  intent: {
-                    type: "string",
-                    description: "What the user wants (e.g., 'escape stress', 'feel uplifted', 'cry it out', 'get thrills')",
-                  },
-                  genres: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Preferred genres mentioned or inferred",
-                  },
-                  language: {
-                    type: "string",
-                    description: "Preferred language/country if mentioned. Empty string if not specified.",
-                  },
-                  tone: {
-                    type: "string",
-                    enum: ["light", "dark", "intense", "comforting", "inspiring", "bittersweet", "whimsical", "gritty"],
-                    description: "The tone preference for recommendations",
-                  },
-                  popularity_preference: {
-                    type: "string",
-                    enum: ["trending", "top_rated", "underrated", "most_watched", "any"],
-                    description: "Whether user prefers trending, top-rated, underrated, or most watched content",
-                  },
-                  content_type: {
-                    type: "string",
-                    enum: ["movie", "tv", "both"],
-                    description: "Whether the user wants movies, TV series, or both",
-                  },
-                  keywords: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Key themes or specific preferences",
-                  },
-                },
-                required: ["primary_emotion", "secondary_emotion", "intent", "genres", "tone", "popularity_preference", "content_type"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: "auto",
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -135,7 +156,7 @@ serve(async (req) => {
         });
       }
       if (status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds." }), {
+        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -149,22 +170,23 @@ serve(async (req) => {
     const choice = data.choices[0];
 
     let aiMessage = choice.message.content || "";
-    let moodData = null;
+    let preferences = null;
 
+    // Extract preferences from tool calls (only present for recommendation intent)
     if (choice.message.tool_calls) {
       for (const toolCall of choice.message.tool_calls) {
-        if (toolCall.function.name === "analyze_mood_and_preferences") {
+        if (toolCall.function.name === "analyze_preferences") {
           try {
-            moodData = JSON.parse(toolCall.function.arguments);
+            preferences = JSON.parse(toolCall.function.arguments);
           } catch (e) {
-            console.error("Failed to parse mood data:", e);
+            console.error("Failed to parse preferences:", e);
           }
         }
       }
     }
 
-    // If we got tool calls but no content, make a follow-up call for the empathetic response
-    if (!aiMessage && moodData) {
+    // If tool call but no content, get a follow-up response
+    if (!aiMessage && preferences) {
       const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -174,7 +196,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: [
-            { role: "system", content: MOOD_SYSTEM_PROMPT },
+            { role: "system", content: "You are Lumina AI. The user asked for recommendations and you've analyzed their preferences. Respond with a brief, warm acknowledgment (1-2 sentences) about what you found for them." },
             { role: "user", content: message },
           ],
         }),
@@ -182,33 +204,26 @@ serve(async (req) => {
 
       if (followUpResponse.ok) {
         const followUpData = await followUpResponse.json();
-        aiMessage = followUpData.choices[0]?.message?.content || getDefaultResponse(moodData.primary_emotion);
+        aiMessage = followUpData.choices[0]?.message?.content || "Great choice! Let me find some recommendations for you.";
+      } else {
+        aiMessage = "Great choice! Let me find some recommendations for you.";
       }
     }
 
     if (!aiMessage) {
-      aiMessage = getDefaultResponse(moodData?.primary_emotion || inferMood(message));
+      aiMessage = "I'm here to help! What would you like to talk about or are you looking for recommendations?";
     }
 
     return new Response(JSON.stringify({
       message: aiMessage,
-      mood: moodData?.primary_emotion || inferMood(message),
-      preferences: moodData || {
-        primary_emotion: inferMood(message),
-        secondary_emotion: "none",
-        intent: "find entertainment",
-        genres: [],
-        language: "",
-        tone: "comforting",
-        popularity_preference: "any",
-        content_type: "both",
-        keywords: [],
-      },
+      intent,
+      preferences: preferences || null,
+      hasRecommendations: !!preferences,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Mood chat error:", error);
+    console.error("Lumina chat error:", error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -216,42 +231,25 @@ serve(async (req) => {
   }
 });
 
-function getDefaultResponse(mood: string): string {
-  const r: Record<string, string> = {
-    happy: "That's wonderful to hear! Your positive energy is contagious. Let me find some feel-good movies to keep that vibe going.",
-    sad: "I hear you, and it's okay to feel this way. Let me find movies that understand, or ones that gently lift your spirits.",
-    stressed: "I completely understand – stress can feel so heavy. Let me find something to help you unwind and escape.",
-    romantic: "Ah, love is in the air! Let me find some swooning romance and heartwarming stories for you.",
-    excited: "I love your energy! Let's channel that excitement into some thrilling entertainment.",
-    relaxed: "Perfect mood for some cozy viewing. Let me match your peaceful vibe.",
-    lonely: "I'm here with you. Movies have a beautiful way of making us feel less alone.",
-    anxious: "Take a deep breath – I understand. Let me suggest some calming films to ease your mind.",
-    burned_out: "Burnout is real and exhausting. You deserve something comforting right now.",
-    overwhelmed: "That's a lot to carry. Let me find something light for a much-needed break.",
-    nostalgic: "There's something beautiful about looking back. Let me capture that warm feeling.",
-    heartbroken: "I'm so sorry you're going through this. I'm here for you.",
-    motivated: "I love that drive! Let me find inspiring stories to fuel your momentum.",
-    bored: "Let's shake things up! I'll find something unexpected and engaging.",
-    hopeful: "That optimism is beautiful. Let me match it with uplifting stories.",
-    curious: "I love your sense of wonder! Let me find something thought-provoking.",
-  };
-  return r[mood] || r.happy;
-}
+function detectIntent(message: string): "greeting" | "conversation" | "recommendation" | "search" {
+  const l = message.toLowerCase().trim();
 
-function inferMood(message: string): string {
-  const l = message.toLowerCase();
-  if (l.match(/sad|down|upset|cry|depressed/)) return "sad";
-  if (l.match(/stress|anxious|worried|overwhelm/)) return "stressed";
-  if (l.match(/love|romantic|date|relationship/)) return "romantic";
-  if (l.match(/excit|thrill|adventure|action/)) return "excited";
-  if (l.match(/relax|calm|peace|chill/)) return "relaxed";
-  if (l.match(/lonely|alone|isolated/)) return "lonely";
-  if (l.match(/burned|exhausted|tired/)) return "burned_out";
-  if (l.match(/nostalg|remember|childhood/)) return "nostalgic";
-  if (l.match(/heartbr|breakup/)) return "heartbroken";
-  if (l.match(/motiv|inspir/)) return "motivated";
-  if (l.match(/bored/)) return "bored";
-  if (l.match(/hope|optimis/)) return "hopeful";
-  if (l.match(/curious|wonder/)) return "curious";
-  return "happy";
+  // Greetings
+  if (/^(hi|hello|hey|good\s*(day|morning|afternoon|evening)|howdy|yo|sup|what'?s\s*up|greetings)\b/i.test(l)) {
+    // But if they also ask for recommendations in the same message, treat as recommendation
+    if (/recommend|suggest|watch|show me|find me/i.test(l)) return "recommendation";
+    return "greeting";
+  }
+
+  // Recommendation requests
+  if (/recommend|suggest|what\s*(should|can|to)\s*i\s*watch|give me|show me.*(?:movie|film|anime|series|show)|find me.*(?:movie|film|anime|series|show)|looking for.*(?:movie|film|anime|series|show)/i.test(l)) {
+    return "recommendation";
+  }
+
+  // Search requests
+  if (/^(search|find|look up|where can i watch)\b/i.test(l)) {
+    return "search";
+  }
+
+  return "conversation";
 }
