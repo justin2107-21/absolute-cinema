@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Search, UserPlus, UserCheck, UserX, Activity, Star, Bookmark, Eye, MessageCircle, Plus } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -13,6 +13,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFriends, type FriendProfile } from '@/hooks/useFriends';
 import { useChat } from '@/hooks/useChat';
+import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 
 type Tab = 'activity' | 'friends' | 'requests';
@@ -52,6 +53,44 @@ export default function Friends() {
     return null;
   });
   const [activeGroup, setActiveGroup] = useState<{ id: string; name: string } | null>(null);
+  const [nicknames, setNicknames] = useState<Record<string, string>>({});
+
+  // Load nicknames for all friends
+  useEffect(() => {
+    const loadNicknames = async () => {
+      if (!user || friends.length === 0) return;
+      // Get all DM conversations for the current user
+      const { data: convos } = await supabase
+        .from('dm_conversations')
+        .select('id, participant1_id, participant2_id')
+        .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`);
+      if (!convos || convos.length === 0) return;
+
+      const convoIds = convos.map(c => c.id);
+      const { data: nns } = await supabase
+        .from('chat_nicknames')
+        .select('conversation_id, user_id, nickname')
+        .in('conversation_id', convoIds);
+      if (!nns) return;
+
+      const map: Record<string, string> = {};
+      for (const nn of nns) {
+        // Find which friend this nickname is for
+        const convo = convos.find(c => c.id === nn.conversation_id);
+        if (!convo) continue;
+        const friendId = convo.participant1_id === user.id ? convo.participant2_id : convo.participant1_id;
+        if (nn.user_id === friendId) {
+          map[friendId] = nn.nickname;
+        }
+      }
+      setNicknames(map);
+    };
+    loadNicknames();
+  }, [user, friends]);
+
+  const getFriendDisplayName = (friend: FriendProfile) => {
+    return nicknames[friend.user_id] || friend.username || 'User';
+  };
 
   const handleSearch = async (q: string) => {
     setSearchQuery(q);
@@ -197,20 +236,26 @@ export default function Friends() {
                   <p className="text-sm text-muted-foreground mt-1">Search for users above to send friend requests</p>
                 </div>
               ) : (
-                !searchQuery && friends.map(friend => (
-                  <button key={friend.id} onClick={() => openChat(friend)}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors text-left">
-                    <Avatar className="h-11 w-11">
-                      <AvatarImage src={friend.avatar_url || undefined} />
-                      <AvatarFallback>{friend.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{friend.username || 'User'}</p>
-                      <p className="text-xs text-muted-foreground">Tap to chat</p>
-                    </div>
-                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                ))
+                !searchQuery && friends.map(friend => {
+                  const displayName = getFriendDisplayName(friend);
+                  return (
+                    <button key={friend.id} onClick={() => openChat(friend)}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors text-left">
+                      <Avatar className="h-11 w-11">
+                        <AvatarImage src={friend.avatar_url || undefined} />
+                        <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{displayName}</p>
+                        {nicknames[friend.user_id] && (
+                          <p className="text-[10px] text-muted-foreground truncate">{friend.username || 'User'}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">Tap to chat</p>
+                      </div>
+                      <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  );
+                })
               )}
             </motion.div>
           )}

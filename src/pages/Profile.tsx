@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Settings, LogOut, Bookmark, Check, Users, ChevronRight, Film, Edit3, Camera, ImageIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Settings, LogOut, Bookmark, Check, Users, ChevronRight, Film, Edit3, ImageIcon, X, Download, Camera } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,10 @@ export default function Profile() {
   const [editData, setEditData] = useState({ username: '', bio: '' });
   const [showBannerSelector, setShowBannerSelector] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [showAvatarViewer, setShowAvatarViewer] = useState(false);
+  const [avatarLongPressTimer, setAvatarLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [showAvatarActions, setShowAvatarActions] = useState(false);
+  const avatarFileRef = useState<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setProfileData(prev => ({ ...prev, avatar_url: avatarUrl }));
@@ -231,19 +235,36 @@ export default function Profile() {
                 {profileLoading ? (
                   <Skeleton className="h-20 w-20 rounded-full" />
                 ) : (
-                  <Avatar className="h-20 w-20 border-4 border-card shadow-xl">
-                    <AvatarImage src={profileData.avatar_url || undefined} />
-                    <AvatarFallback className="text-xl bg-primary/20">
-                      {(profileData.username || 'G').charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <button
+                    className="block rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+                    onClick={() => {
+                      if (profileData.avatar_url) setShowAvatarViewer(true);
+                    }}
+                    onTouchStart={() => {
+                      if (!isAuthenticated) return;
+                      const timer = setTimeout(() => setShowAvatarActions(true), 500);
+                      setAvatarLongPressTimer(timer);
+                    }}
+                    onTouchEnd={() => {
+                      if (avatarLongPressTimer) clearTimeout(avatarLongPressTimer);
+                      setAvatarLongPressTimer(null);
+                    }}
+                    onContextMenu={(e) => {
+                      if (isAuthenticated) {
+                        e.preventDefault();
+                        setShowAvatarActions(true);
+                      }
+                    }}
+                  >
+                    <Avatar className="h-20 w-20 border-4 border-card shadow-xl">
+                      <AvatarImage src={profileData.avatar_url || undefined} />
+                      <AvatarFallback className="text-xl bg-primary/20">
+                        {(profileData.username || 'G').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
                 )}
-                {isAuthenticated && (
-                  <label className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary flex items-center justify-center cursor-pointer border-2 border-card">
-                    <Camera className="h-3.5 w-3.5 text-primary-foreground" />
-                    <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleAvatarSelect} />
-                  </label>
-                )}
+                <input type="file" accept="image/png,image/jpeg" className="hidden" id="avatar-file-input" onChange={handleAvatarSelect} />
               </div>
             </div>
 
@@ -373,6 +394,92 @@ export default function Profile() {
           </section>
         )}
       </div>
+
+      {/* Avatar Fullscreen Viewer */}
+      <AnimatePresence>
+        {showAvatarViewer && profileData.avatar_url && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+            onClick={() => setShowAvatarViewer(false)}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 text-white hover:bg-white/10 z-10"
+              onClick={() => setShowAvatarViewer(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <motion.img
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              src={profileData.avatar_url}
+              alt="Profile"
+              className="max-w-[85vw] max-h-[85vh] rounded-2xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Avatar Actions (long press / right click) */}
+      <AnimatePresence>
+        {showAvatarActions && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 flex items-end justify-center"
+            onClick={() => setShowAvatarActions(false)}
+          >
+            <motion.div
+              initial={{ y: 100 }}
+              animate={{ y: 0 }}
+              exit={{ y: 100 }}
+              className="w-full max-w-md bg-card rounded-t-2xl p-4 space-y-2 safe-bottom"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-10 h-1 rounded-full bg-muted mx-auto mb-3" />
+              {profileData.avatar_url && (
+                <button
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = profileData.avatar_url!;
+                    link.download = 'profile-picture.png';
+                    link.target = '_blank';
+                    link.click();
+                    setShowAvatarActions(false);
+                  }}
+                >
+                  <Download className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium">Save Profile Picture</span>
+                </button>
+              )}
+              <button
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors"
+                onClick={() => {
+                  setShowAvatarActions(false);
+                  document.getElementById('avatar-file-input')?.click();
+                }}
+              >
+                <Camera className="h-5 w-5 text-muted-foreground" />
+                <span className="font-medium">Change Profile Picture</span>
+              </button>
+              <button
+                className="w-full p-3 rounded-xl text-muted-foreground hover:bg-secondary/50 transition-colors font-medium"
+                onClick={() => setShowAvatarActions(false)}
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AppLayout>
   );
 }
