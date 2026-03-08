@@ -60,8 +60,8 @@ export function MovieCard({
       whileHover={{ scale: 1.05, zIndex: 20 }}
       transition={{ duration: 0.2 }}
     >
-      {/* Base poster card */}
-      <div className="relative h-full w-full overflow-hidden rounded-xl">
+      {/* Base poster card - clickable */}
+      <div className="relative h-full w-full overflow-hidden rounded-xl" onClick={handleCardClick}>
         {posterUrl ? (
           <img
             src={posterUrl}
@@ -107,8 +107,9 @@ export function MovieCard({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute -inset-4 z-30 rounded-2xl overflow-hidden bg-card shadow-2xl border border-border"
+            className="absolute -inset-4 z-30 rounded-2xl overflow-hidden bg-card shadow-2xl border border-border cursor-pointer"
             style={{ minWidth: '280px', minHeight: '320px' }}
+            onClick={handleCardClick}
           >
             {/* Trailer or backdrop */}
             <div className="relative h-36 w-full bg-secondary">
