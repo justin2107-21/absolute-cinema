@@ -90,21 +90,21 @@ export default function MovieDetails() {
   const handleRatingSubmit = (rating: number) => {
     setShowRatingModal(false);
     markAsWatched(movie, rating);
-    postActivity('rated', movie.title, posterUrl, String(movie.id), 'tmdb', 'movie', rating);
-    toast.success(`Rated ${movie.title} ${'⭐'.repeat(rating)}`);
+    postActivity('rated', displayTitle, posterUrl, String(movie.id), 'tmdb', contentType, rating);
+    toast.success(`Rated ${displayTitle} ${'⭐'.repeat(rating)}`);
   };
 
   const handleRatingSkip = () => {
     setShowRatingModal(false);
     markAsWatched(movie);
-    postActivity('watched', movie.title, posterUrl, String(movie.id), 'tmdb', 'movie');
-    toast.success(`Marked ${movie.title} as watched`);
+    postActivity('watched', displayTitle, posterUrl, String(movie.id), 'tmdb', contentType);
+    toast.success(`Marked ${displayTitle} as watched`);
   };
 
   const handleAddToWatchlist = () => {
     addToWatchlist(movie);
     if (isAuthenticated && !inWatchlist) {
-      postActivity('watchlist_add', movie.title, posterUrl, String(movie.id), 'tmdb', 'movie');
+      postActivity('watchlist_add', displayTitle, posterUrl, String(movie.id), 'tmdb', contentType);
     }
   };
 
@@ -115,7 +115,7 @@ export default function MovieDetails() {
         onClose={() => setShowRatingModal(false)}
         onSubmit={handleRatingSubmit}
         onSkip={handleRatingSkip}
-        title={movie.title}
+        title={displayTitle}
         posterUrl={posterUrl}
       />
 
@@ -123,7 +123,7 @@ export default function MovieDetails() {
         {/* Hero */}
         <header className="relative min-h-[60vh]">
           <div className="absolute inset-0">
-            {backdropUrl && <img src={backdropUrl} alt={movie.title} className="h-full w-full object-cover" />}
+            {backdropUrl && <img src={backdropUrl} alt={displayTitle} className="h-full w-full object-cover" />}
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
           </div>
           <div className="absolute top-4 left-4 z-20">
@@ -134,10 +134,10 @@ export default function MovieDetails() {
           <div className="relative z-10 flex flex-col justify-end min-h-[60vh] px-4 pb-6">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex gap-4">
               <div className="w-28 h-40 rounded-xl overflow-hidden shadow-2xl flex-shrink-0">
-                {posterUrl ? <img src={posterUrl} alt={movie.title} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-secondary" />}
+                {posterUrl ? <img src={posterUrl} alt={displayTitle} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-secondary" />}
               </div>
               <div className="flex-1 min-w-0 space-y-2">
-                <h1 className="text-2xl font-bold line-clamp-2">{movie.title}</h1>
+                <h1 className="text-2xl font-bold line-clamp-2">{displayTitle}</h1>
                 {movie.tagline && <p className="text-sm text-muted-foreground italic">"{movie.tagline}"</p>}
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
@@ -223,7 +223,7 @@ export default function MovieDetails() {
 
         {/* Comments */}
         <div className="mt-8">
-          <CommentSection contentType="movie" contentId={id || ''} />
+          <CommentSection contentType={contentType} contentId={id || ''} />
         </div>
       </div>
     </AppLayout>
