@@ -2,10 +2,27 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 
 export type Language = 'en' | 'tl';
 
+export interface NotificationSettings {
+  friendActivity: boolean;
+  friendRequests: boolean;
+  newReleases: boolean;
+  aiRecommendations: boolean;
+}
+
+export interface AccessibilitySettings {
+  reduceMotion: boolean;
+  highContrast: boolean;
+  largeText: boolean;
+}
+
 interface SettingsContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
+  notifications: NotificationSettings;
+  setNotifications: (n: NotificationSettings) => void;
+  accessibility: AccessibilitySettings;
+  setAccessibility: (a: AccessibilitySettings) => void;
 }
 
 const translations: Record<Language, Record<string, string>> = {
@@ -62,6 +79,67 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.watchPartyDesc': 'Party preferences',
     'settings.about': 'About',
     'settings.aboutDesc': 'App info and support',
+
+    // Account
+    'account.signedInAs': 'Signed in as',
+    'account.editProfile': 'Edit Profile',
+    'account.changePassword': 'Change Password',
+    'account.connectedAccounts': 'Connected Accounts',
+    'account.signInToManage': 'Sign in to manage your account',
+    'account.username': 'Username',
+    'account.bio': 'Bio',
+    'account.saveChanges': 'Save Changes',
+    'account.saving': 'Saving...',
+    'account.currentPassword': 'Current Password',
+    'account.newPassword': 'New Password',
+    'account.confirmPassword': 'Confirm New Password',
+    'account.updatePassword': 'Update Password',
+    'account.updating': 'Updating...',
+    'account.googleConnected': 'Connected',
+    'account.googleConnect': 'Connect',
+    'account.appleConnected': 'Connected',
+    'account.appleConnect': 'Connect',
+    'account.oauthDesc': 'Link your social accounts for easier sign-in',
+
+    // Privacy
+    'privacy.profileVisibility': 'Profile Visibility',
+    'privacy.profileVisibilityDesc': 'Who can see your profile',
+    'privacy.public': 'Public (anyone)',
+    'privacy.friendsOnly': 'Friends Only',
+    'privacy.private': 'Private',
+    'privacy.activityVisibility': 'Activity Visibility',
+    'privacy.activityVisibilityDesc': 'Control who can see your recent activity, ratings, and watched content',
+    'privacy.activityFriends': 'Allow friends to see activity',
+    'privacy.activityHidden': 'Hide activity',
+    'privacy.chatPermissions': 'Chat Permissions',
+    'privacy.chatPermissionsDesc': 'Who can send you messages',
+    'privacy.everyone': 'Everyone',
+    'privacy.friendRequests': 'Friend Requests',
+    'privacy.friendRequestsDesc': 'Who can send you friend requests',
+    'privacy.friendsOfFriends': 'Friends of Friends',
+    'privacy.downloadData': 'Download My Data',
+    'privacy.downloadDataDesc': 'Export your information',
+    'privacy.deleteAccount': 'Delete Account',
+    'privacy.deleteAccountDesc': 'Permanently remove your data',
+    'privacy.deleteConfirm': 'Are you sure? This action cannot be undone. Type DELETE to confirm.',
+
+    // Notifications
+    'notif.friendActivity': 'Friend Activity',
+    'notif.friendActivityDesc': 'When friends watch movies',
+    'notif.friendRequests': 'Friend Requests',
+    'notif.friendRequestsDesc': 'When someone sends a request',
+    'notif.newReleases': 'New Releases',
+    'notif.newReleasesDesc': 'Movies matching your taste',
+    'notif.aiRecommendations': 'AI Recommendations',
+    'notif.aiRecommendationsDesc': 'Personalized suggestions',
+
+    // Accessibility
+    'a11y.reduceMotion': 'Reduce Motion',
+    'a11y.reduceMotionDesc': 'Minimize animations',
+    'a11y.highContrast': 'High Contrast',
+    'a11y.highContrastDesc': 'Improve readability',
+    'a11y.largeText': 'Large Text',
+    'a11y.largeTextDesc': 'Increase font sizes',
     
     // MoodMatch
     'mood.title': 'MoodMatch AI',
@@ -138,6 +216,67 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.watchPartyDesc': 'Mga kagustuhan sa parti',
     'settings.about': 'Tungkol sa',
     'settings.aboutDesc': 'Impormasyon at suporta',
+
+    // Account
+    'account.signedInAs': 'Naka-login bilang',
+    'account.editProfile': 'I-edit ang Profile',
+    'account.changePassword': 'Palitan ang Password',
+    'account.connectedAccounts': 'Mga Konektadong Account',
+    'account.signInToManage': 'Mag-login para pamahalaan ang account',
+    'account.username': 'Username',
+    'account.bio': 'Bio',
+    'account.saveChanges': 'I-save ang Pagbabago',
+    'account.saving': 'Sini-save...',
+    'account.currentPassword': 'Kasalukuyang Password',
+    'account.newPassword': 'Bagong Password',
+    'account.confirmPassword': 'Kumpirmahin ang Bagong Password',
+    'account.updatePassword': 'I-update ang Password',
+    'account.updating': 'Ina-update...',
+    'account.googleConnected': 'Konektado',
+    'account.googleConnect': 'Ikonekta',
+    'account.appleConnected': 'Konektado',
+    'account.appleConnect': 'Ikonekta',
+    'account.oauthDesc': 'I-link ang iyong social accounts para mas madaling mag-login',
+
+    // Privacy
+    'privacy.profileVisibility': 'Visibility ng Profile',
+    'privacy.profileVisibilityDesc': 'Sino ang makakakita ng profile mo',
+    'privacy.public': 'Publiko (lahat)',
+    'privacy.friendsOnly': 'Mga Kaibigan Lang',
+    'privacy.private': 'Pribado',
+    'privacy.activityVisibility': 'Visibility ng Aktibidad',
+    'privacy.activityVisibilityDesc': 'Kontrolin kung sino ang makakakita ng aktibidad, rating, at pinanood mo',
+    'privacy.activityFriends': 'Payagan ang mga kaibigan na makita ang aktibidad',
+    'privacy.activityHidden': 'Itago ang aktibidad',
+    'privacy.chatPermissions': 'Pahintulot sa Chat',
+    'privacy.chatPermissionsDesc': 'Sino ang puwedeng mag-message sa iyo',
+    'privacy.everyone': 'Lahat',
+    'privacy.friendRequests': 'Mga Friend Request',
+    'privacy.friendRequestsDesc': 'Sino ang puwedeng mag-send ng friend request',
+    'privacy.friendsOfFriends': 'Mga Kaibigan ng Kaibigan',
+    'privacy.downloadData': 'I-download ang Data Ko',
+    'privacy.downloadDataDesc': 'I-export ang iyong impormasyon',
+    'privacy.deleteAccount': 'Burahin ang Account',
+    'privacy.deleteAccountDesc': 'Permanenteng tanggalin ang data',
+    'privacy.deleteConfirm': 'Sigurado ka ba? Hindi na ito maibabalik. I-type ang DELETE para kumpirmahin.',
+
+    // Notifications
+    'notif.friendActivity': 'Aktibidad ng Kaibigan',
+    'notif.friendActivityDesc': 'Kapag nanood ang mga kaibigan ng pelikula',
+    'notif.friendRequests': 'Mga Friend Request',
+    'notif.friendRequestsDesc': 'Kapag may nag-send ng request',
+    'notif.newReleases': 'Bagong Labas',
+    'notif.newReleasesDesc': 'Mga pelikula ayon sa panlasa mo',
+    'notif.aiRecommendations': 'AI Recommendations',
+    'notif.aiRecommendationsDesc': 'Mga personalized na mungkahi',
+
+    // Accessibility
+    'a11y.reduceMotion': 'Bawasan ang Galaw',
+    'a11y.reduceMotionDesc': 'I-minimize ang mga animation',
+    'a11y.highContrast': 'Mataas na Contrast',
+    'a11y.highContrastDesc': 'Pagandahin ang readability',
+    'a11y.largeText': 'Malaking Text',
+    'a11y.largeTextDesc': 'Palakihin ang font sizes',
     
     // MoodMatch
     'mood.title': 'MoodMatch AI',
@@ -163,6 +302,22 @@ const translations: Record<Language, Record<string, string>> = {
   },
 };
 
+const NOTIF_KEY = 'ac_notifications';
+const A11Y_KEY = 'ac_accessibility';
+
+const defaultNotifications: NotificationSettings = {
+  friendActivity: true,
+  friendRequests: true,
+  newReleases: true,
+  aiRecommendations: true,
+};
+
+const defaultAccessibility: AccessibilitySettings = {
+  reduceMotion: false,
+  highContrast: false,
+  largeText: false,
+};
+
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -171,20 +326,49 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return (saved as Language) || 'en';
   });
 
+  const [notifications, setNotificationsState] = useState<NotificationSettings>(() => {
+    try {
+      const saved = localStorage.getItem(NOTIF_KEY);
+      return saved ? JSON.parse(saved) : defaultNotifications;
+    } catch { return defaultNotifications; }
+  });
+
+  const [accessibility, setAccessibilityState] = useState<AccessibilitySettings>(() => {
+    try {
+      const saved = localStorage.getItem(A11Y_KEY);
+      return saved ? JSON.parse(saved) : defaultAccessibility;
+    } catch { return defaultAccessibility; }
+  });
+
   useEffect(() => {
     localStorage.setItem('absolutecinema_language', language);
   }, [language]);
 
-  const setLanguage = (lang: Language) => {
-    setLanguageState(lang);
-  };
+  useEffect(() => {
+    localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications));
+  }, [notifications]);
+
+  useEffect(() => {
+    localStorage.setItem(A11Y_KEY, JSON.stringify(accessibility));
+    // Apply accessibility effects to document
+    const root = document.documentElement;
+    root.classList.toggle('reduce-motion', accessibility.reduceMotion);
+    root.classList.toggle('high-contrast', accessibility.highContrast);
+    root.classList.toggle('large-text', accessibility.largeText);
+  }, [accessibility]);
+
+  const setLanguage = (lang: Language) => setLanguageState(lang);
+
+  const setNotifications = (n: NotificationSettings) => setNotificationsState(n);
+
+  const setAccessibility = (a: AccessibilitySettings) => setAccessibilityState(a);
 
   const t = (key: string): string => {
     return translations[language][key] || key;
   };
 
   return (
-    <SettingsContext.Provider value={{ language, setLanguage, t }}>
+    <SettingsContext.Provider value={{ language, setLanguage, t, notifications, setNotifications, accessibility, setAccessibility }}>
       {children}
     </SettingsContext.Provider>
   );
