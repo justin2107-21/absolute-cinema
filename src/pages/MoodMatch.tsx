@@ -58,6 +58,41 @@ function sanitizeAiContent(text: string): string {
   return cleaned;
 }
 
+// ─── TMDB METADATA TYPES ───
+interface SeasonInfo {
+  season_number: number;
+  episode_count: number;
+  name: string;
+  air_date: string | null;
+}
+
+interface EpisodeInfo {
+  season_number: number;
+  episode_number: number;
+  name: string;
+  overview: string;
+  air_date: string | null;
+  still_path: string | null;
+  vote_average: number;
+}
+
+interface TmdbMetadata {
+  tmdbId: number;
+  title: string;
+  overview: string;
+  posterPath: string | null;
+  backdropPath: string | null;
+  voteAverage: number;
+  totalSeasons: number;
+  totalEpisodes: number;
+  seasons: SeasonInfo[];
+  episodes: EpisodeInfo[];
+  status: string;
+  firstAirDate: string | null;
+  mediaType: 'movie' | 'tv';
+  runtime?: number;
+}
+
 // ─── LUMINA AI CHAT MESSAGE TYPE ───
 interface LuminaMessage {
   id?: string;
@@ -70,9 +105,9 @@ interface LuminaMessage {
   isError?: boolean;
   imageUrl?: string;
   isEditing?: boolean;
-  // For identified content action buttons
   identifiedTitle?: string;
   identifiedType?: 'movie' | 'tv' | 'anime';
+  tmdbMetadata?: TmdbMetadata | null;
 }
 
 export default function MoodMatch() {
