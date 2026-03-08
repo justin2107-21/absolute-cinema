@@ -93,6 +93,22 @@ interface TmdbMetadata {
   runtime?: number;
 }
 
+// ─── ANILIST METADATA TYPE ───
+interface AniListMetadata {
+  anilistId: number;
+  title: string;
+  titleEnglish: string | null;
+  overview: string;
+  posterPath: string | null;
+  bannerPath: string | null;
+  voteAverage: number;
+  totalEpisodes: number | null;
+  status: string;
+  year: number | null;
+  genres: string[];
+  format: string | null;
+}
+
 // ─── LUMINA AI CHAT MESSAGE TYPE ───
 interface LuminaMessage {
   id?: string;
@@ -106,9 +122,17 @@ interface LuminaMessage {
   imageUrl?: string;
   isEditing?: boolean;
   identifiedTitle?: string;
-  identifiedType?: 'movie' | 'tv' | 'anime';
+  identifiedType?: 'movie' | 'tv' | 'anime' | 'manga';
   tmdbMetadata?: TmdbMetadata | null;
-  recsVisible?: boolean; // Whether recommendations are currently shown
+  anilistMetadata?: AniListMetadata | null;
+  character?: string | null;
+  genre?: string | null;
+  year?: string | null;
+  season?: string | null;
+  episode?: string | null;
+  episodeTitle?: string | null;
+  timestamp?: string | null;
+  recsVisible?: boolean;
 }
 
 export default function MoodMatch() {
