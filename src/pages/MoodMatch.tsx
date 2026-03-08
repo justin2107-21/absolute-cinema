@@ -5,7 +5,7 @@ import {
   Smile, Frown, Zap, Heart, PartyPopper, Coffee, Sparkles, Send, ArrowLeft, Brain,
   Moon, CloudRain, Flame, Lightbulb, Meh, Search, Compass, HeartCrack, Battery,
   Film, Tv, BookOpen, TrendingUp, Star, Eye, AlertCircle, Pencil, Trash2,
-  Paperclip, Image as ImageIcon, MoreVertical, X
+  Paperclip, Image as ImageIcon, MoreVertical, X, Play, List, Plus
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MovieCard } from '@/components/movies/MovieCard';
@@ -45,6 +45,19 @@ const moods = [
   { id: 'curious', label: 'Curious', icon: Compass, color: 'text-primary' },
 ];
 
+// ─── SANITIZE AI OUTPUT ───
+function sanitizeAiContent(text: string): string {
+  // Remove tool call XML tags like <search_recommendations_action>...</search_recommendations_action>
+  let cleaned = text.replace(/<\/?[a-z_]+(?:\s[^>]*)?>(?:\{[^}]*\})?/gi, '');
+  // Remove markdown bold/italic/heading markers
+  cleaned = cleaned.replace(/#{1,6}\s*/g, '');
+  cleaned = cleaned.replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1');
+  cleaned = cleaned.replace(/_{1,2}([^_]+)_{1,2}/g, '$1');
+  // Clean up extra whitespace
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  return cleaned;
+}
+
 // ─── LUMINA AI CHAT MESSAGE TYPE ───
 interface LuminaMessage {
   id?: string;
@@ -57,6 +70,9 @@ interface LuminaMessage {
   isError?: boolean;
   imageUrl?: string;
   isEditing?: boolean;
+  // For identified content action buttons
+  identifiedTitle?: string;
+  identifiedType?: 'movie' | 'tv' | 'anime';
 }
 
 export default function MoodMatch() {
@@ -73,6 +89,7 @@ export default function MoodMatch() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -192,8 +209,8 @@ export default function MoodMatch() {
     }
   };
 
-  // ─── IMAGE HANDLING ───
-  const handleImageUpload = async (file: File) => {
+  // ─── IMAGE HANDLING (staged, not auto-sent) ───
+  const stageImage = (file: File) => {
     if (!file.type.startsWith('image/')) {
       toast.error('Please upload an image file.');
       return;
@@ -202,60 +219,69 @@ export default function MoodMatch() {
       toast.error('Image must be under 5MB.');
       return;
     }
-
-    // Convert to base64 for vision API
     const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      const userMessage: LuminaMessage = {
-        role: 'user',
-        content: chatInput.trim() || 'What movie/anime/show is this from?',
-        imageUrl: base64,
-      };
-      setChatHistory(prev => [...prev, userMessage]);
-      setChatInput('');
-      setIsAiThinking(true);
-
-      try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-        const response = await fetch(`${supabaseUrl}/functions/v1/analyze-image`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseKey}`,
-            'apikey': supabaseKey,
-          },
-          body: JSON.stringify({
-            imageUrl: base64,
-            message: chatInput.trim() || 'What movie/anime/show is this from?',
-          }),
-        });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data?.error || 'Image analysis failed');
-
-        const aiMessage: LuminaMessage = { role: 'assistant', content: data.message };
-        setChatHistory(prev => [...prev, aiMessage]);
-
-        if (isAuthenticated && user) {
-          const convId = await createOrUpdateConversation();
-          await saveMessage(userMessage, convId);
-          await saveMessage(aiMessage, convId);
-        }
-      } catch (error: any) {
-        console.error('Image analysis error:', error);
-        setChatHistory(prev => [...prev, {
-          role: 'assistant',
-          content: "I couldn't analyze the image right now. Please try again.",
-          isError: true,
-        }]);
-      } finally {
-        setIsAiThinking(false);
-      }
+    reader.onload = () => {
+      setPendingImage({ file, preview: reader.result as string });
     };
     reader.readAsDataURL(file);
+  };
+
+  const removePendingImage = () => setPendingImage(null);
+
+  const sendImageMessage = async (base64: string, text: string) => {
+    const userMessage: LuminaMessage = {
+      role: 'user',
+      content: text || 'What movie/anime/show is this from?',
+      imageUrl: base64,
+    };
+    setChatHistory(prev => [...prev, userMessage]);
+    setChatInput('');
+    setPendingImage(null);
+    setIsAiThinking(true);
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/analyze-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({
+          imageUrl: base64,
+          message: text || 'What movie/anime/show is this from?',
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'Image analysis failed');
+
+      const aiMessage: LuminaMessage = {
+        role: 'assistant',
+        content: sanitizeAiContent(data.message),
+        identifiedTitle: data.identifiedTitle || undefined,
+        identifiedType: data.identifiedType || undefined,
+      };
+      setChatHistory(prev => [...prev, aiMessage]);
+
+      if (isAuthenticated && user) {
+        const convId = await createOrUpdateConversation();
+        await saveMessage(userMessage, convId);
+        await saveMessage(aiMessage, convId);
+      }
+    } catch (error: any) {
+      console.error('Image analysis error:', error);
+      setChatHistory(prev => [...prev, {
+        role: 'assistant',
+        content: "I couldn't analyze the image right now. Please try again.",
+        isError: true,
+      }]);
+    } finally {
+      setIsAiThinking(false);
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -265,7 +291,7 @@ export default function MoodMatch() {
       if (item.type.startsWith('image/')) {
         e.preventDefault();
         const file = item.getAsFile();
-        if (file) handleImageUpload(file);
+        if (file) stageImage(file);
         return;
       }
     }
@@ -276,7 +302,7 @@ export default function MoodMatch() {
     setIsDragOver(false);
     const files = e.dataTransfer?.files;
     if (files?.[0]?.type.startsWith('image/')) {
-      handleImageUpload(files[0]);
+      stageImage(files[0]);
     }
   };
 
@@ -300,6 +326,12 @@ export default function MoodMatch() {
 
   // ─── LUMINA AI CHAT ───
   const handleChatSubmit = async () => {
+    // If there's a pending image, send it
+    if (pendingImage) {
+      await sendImageMessage(pendingImage.preview, chatInput.trim());
+      return;
+    }
+
     if (!chatInput.trim()) return;
 
     const userMessage: LuminaMessage = { role: 'user', content: chatInput };
@@ -332,21 +364,31 @@ export default function MoodMatch() {
         throw new Error(data?.error || `Server error (${response.status})`);
       }
 
+      const hasPrefs = data.hasRecommendations && !!data.preferences;
+
       const aiMessage: LuminaMessage = {
         role: 'assistant',
-        content: data.message,
-        // Only show recommendation button when AI detected recommendation intent AND returned preferences
-        showRecommendations: data.hasRecommendations && !!data.preferences,
+        content: sanitizeAiContent(data.message),
+        showRecommendations: false, // We'll auto-fetch instead
         preferences: data.preferences || undefined,
       };
 
       setChatHistory(prev => [...prev, aiMessage]);
 
-      // Persist to DB
+      // Persist
       if (isAuthenticated && user) {
         const convId = await createOrUpdateConversation();
         await saveMessage(userMessage, convId);
         await saveMessage(aiMessage, convId);
+      }
+
+      // Auto-fetch recommendations if AI detected recommendation intent
+      if (hasPrefs && data.preferences) {
+        const newIndex = chatHistory.length + 1; // +1 for user msg already added
+        // Small delay for UX
+        setTimeout(() => {
+          handleShowRecommendations(newIndex, data.preferences);
+        }, 500);
       }
     } catch (error: any) {
       console.error('Lumina AI error:', error);
@@ -440,6 +482,35 @@ export default function MoodMatch() {
     </div>
   );
 
+  // ─── ACTION BUTTONS FOR IDENTIFIED CONTENT ───
+  const renderIdentifiedActions = (msg: LuminaMessage) => {
+    if (!msg.identifiedTitle) return null;
+    return (
+      <div className="flex flex-wrap gap-2 mt-3">
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 text-xs"
+          onClick={() => {
+            const query = `recommend ${msg.identifiedType === 'anime' ? 'anime' : 'movies'} similar to ${msg.identifiedTitle}`;
+            setChatInput(query);
+            setTimeout(() => handleChatSubmit(), 100);
+          }}
+        >
+          <Play className="h-3 w-3" /> Similar {msg.identifiedType === 'anime' ? 'Anime' : 'Titles'}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 text-xs"
+          onClick={() => navigate(`/search?q=${encodeURIComponent(msg.identifiedTitle!)}`)}
+        >
+          <Search className="h-3 w-3" /> View Details
+        </Button>
+      </div>
+    );
+  };
+
   const showingHome = !quickMoodMode;
 
   return (
@@ -495,7 +566,7 @@ export default function MoodMatch() {
                     {/* Messages area */}
                     <ScrollArea className="flex-1 px-4 py-4">
                       <div className="space-y-4 max-w-2xl mx-auto">
-                        {/* Welcome message if no history */}
+                        {/* Welcome message */}
                         {chatHistory.length === 0 && (
                           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
                             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-accent flex-shrink-0 flex items-center justify-center">
@@ -547,7 +618,7 @@ export default function MoodMatch() {
                                 </div>
                               )}
 
-                              {/* Image attachment */}
+                              {/* Image attachment - persisted */}
                               {chat.imageUrl && (
                                 <div className="mb-2 rounded-lg overflow-hidden">
                                   <img src={chat.imageUrl} alt="Uploaded" className="max-h-48 rounded-lg object-contain" />
@@ -571,13 +642,11 @@ export default function MoodMatch() {
                                 <p className="whitespace-pre-wrap leading-relaxed">{chat.content}</p>
                               )}
 
-                              {/* NO mood tags — removed entirely */}
-
                               {/* Show Personalized Recommendations button */}
                               {chat.role === 'assistant' && chat.showRecommendations && chat.preferences && !chat.recommendations && !chat.isError && (
                                 <Button
                                   size="sm"
-                                  variant={chat.role === 'assistant' ? "default" : "secondary"}
+                                  variant="default"
                                   className="mt-3 w-full gap-2"
                                   disabled={chat.isLoadingRecs}
                                   onClick={() => handleShowRecommendations(index, chat.preferences!)}
@@ -596,8 +665,19 @@ export default function MoodMatch() {
                                 </Button>
                               )}
 
+                              {/* Loading recs indicator */}
+                              {chat.isLoadingRecs && (
+                                <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+                                  Finding recommendations...
+                                </div>
+                              )}
+
                               {/* Inline recommendations */}
                               {chat.recommendations && renderInlineRecs(chat.recommendations)}
+
+                              {/* Action buttons for identified content */}
+                              {chat.role === 'assistant' && renderIdentifiedActions(chat)}
 
                               {/* Message actions (edit/delete) */}
                               {chat.role === 'user' && editingIndex !== index && (
@@ -654,6 +734,21 @@ export default function MoodMatch() {
                       </div>
                     </ScrollArea>
 
+                    {/* Pending image preview */}
+                    {pendingImage && (
+                      <div className="px-4 pt-2 border-t border-border">
+                        <div className="relative inline-block">
+                          <img src={pendingImage.preview} alt="Preview" className="h-20 rounded-lg object-contain border border-border" />
+                          <button
+                            onClick={removePendingImage}
+                            className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Input area */}
                     <div className="px-4 py-3 border-t border-border">
                       <div className="flex items-end gap-2 max-w-2xl mx-auto">
@@ -664,7 +759,7 @@ export default function MoodMatch() {
                           accept="image/*"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) handleImageUpload(file);
+                            if (file) stageImage(file);
                             e.target.value = '';
                           }}
                         />
@@ -696,7 +791,7 @@ export default function MoodMatch() {
                           size="icon"
                           className="h-10 w-10 flex-shrink-0 rounded-xl"
                           onClick={handleChatSubmit}
-                          disabled={isAiThinking || !chatInput.trim()}
+                          disabled={isAiThinking || (!chatInput.trim() && !pendingImage)}
                         >
                           <Send className="h-5 w-5" />
                         </Button>
@@ -763,52 +858,44 @@ export default function MoodMatch() {
                   </div>
                 </section>
 
-                <section className="px-4">
-                  <Tabs value={quickMoodTab} onValueChange={(v) => setQuickMoodTab(v as typeof quickMoodTab)}>
-                    <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="movies" className="gap-2"><Film className="h-4 w-4" /> Movies</TabsTrigger>
-                      <TabsTrigger value="anime" className="gap-2"><Tv className="h-4 w-4" /> Anime</TabsTrigger>
-                      <TabsTrigger value="manga" className="gap-2"><BookOpen className="h-4 w-4" /> Manga</TabsTrigger>
+                <section className="px-4 space-y-4">
+                  <Tabs value={quickMoodTab} onValueChange={v => setQuickMoodTab(v as any)}>
+                    <TabsList className="grid grid-cols-3 w-full">
+                      <TabsTrigger value="movies" className="gap-1.5"><Film className="h-4 w-4" /> Movies</TabsTrigger>
+                      <TabsTrigger value="anime" className="gap-1.5"><Tv className="h-4 w-4" /> Anime</TabsTrigger>
+                      <TabsTrigger value="manga" className="gap-1.5"><BookOpen className="h-4 w-4" /> Manga</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="movies" className="mt-4">
                       {isLoadingMovies ? (
-                        <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" /></div>
-                      ) : (
-                        <div className="grid grid-cols-3 gap-4">
-                          {(moodMovies?.results.slice(0, 12) || []).map((movie, index) => (
-                            <motion.div key={movie.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05 }}>
-                              <MovieCard movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
-                            </motion.div>
+                        <div className="grid grid-cols-2 gap-4">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="aspect-[2/3] rounded-xl bg-muted animate-pulse" />)}</div>
+                      ) : moodMovies?.length ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          {moodMovies.map(movie => (
+                            <MovieCard key={movie.id} movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
                           ))}
                         </div>
-                      )}
+                      ) : <p className="text-center text-muted-foreground py-8">No movies found for this mood.</p>}
                     </TabsContent>
+
                     <TabsContent value="anime" className="mt-4">
                       {isLoadingAnime ? (
-                        <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" /></div>
-                      ) : (
-                        <div className="grid grid-cols-3 gap-4">
-                          {moodAnime?.slice(0, 12).map((anime, index) => (
-                            <motion.div key={anime.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05 }}>
-                              <AnimeCard anime={anime} size="sm" onClick={() => handleAnimeClick(anime)} />
-                            </motion.div>
-                          ))}
+                        <div className="grid grid-cols-2 gap-4">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="aspect-[2/3] rounded-xl bg-muted animate-pulse" />)}</div>
+                      ) : moodAnime?.length ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          {moodAnime.map(anime => <AnimeCard key={anime.id} anime={anime} onClick={() => handleAnimeClick(anime)} />)}
                         </div>
-                      )}
+                      ) : <p className="text-center text-muted-foreground py-8">No anime found for this mood.</p>}
                     </TabsContent>
+
                     <TabsContent value="manga" className="mt-4">
                       {isLoadingManga ? (
-                        <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" /></div>
-                      ) : (
-                        <div className="grid grid-cols-3 gap-4">
-                          {moodManga?.slice(0, 12).map((manga, index) => (
-                            <motion.div key={manga.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05 }}>
-                              <AnimeCard anime={manga} size="sm" onClick={() => handleAnimeClick(manga)} />
-                            </motion.div>
-                          ))}
+                        <div className="grid grid-cols-2 gap-4">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="aspect-[2/3] rounded-xl bg-muted animate-pulse" />)}</div>
+                      ) : moodManga?.length ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          {moodManga.map(manga => <AnimeCard key={manga.id} anime={manga} onClick={() => navigate(`/anime/${manga.id}`)} />)}
                         </div>
-                      )}
+                      ) : <p className="text-center text-muted-foreground py-8">No manga found for this mood.</p>}
                     </TabsContent>
                   </Tabs>
                 </section>

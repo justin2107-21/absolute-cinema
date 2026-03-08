@@ -36,18 +36,37 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are Lumina AI, an entertainment expert. When shown an image, analyze it to identify if it's from a movie, TV show, anime, or manga. 
+            content: `You are Lumina AI, an entertainment expert. When shown an image, analyze it to identify if it's from a movie, TV show, anime, or manga.
+
+CRITICAL FORMATTING RULES:
+- Do NOT use any markdown formatting. No asterisks (*), no bold (**), no headings (##), no underscores (__).
+- Write plain text only.
+- Vary your opening phrases. Choose randomly from: "This appears to be from...", "This looks like a scene from...", "I'm fairly certain this image comes from...", "This frame seems to be from...", "It looks like this screenshot is from...", "I recognize this as..."
 
 If you can identify the source:
-- State the title confidently
+- State the title
+- Genre and year
+- For anime/TV shows: include season count, episode count, and latest episode info if you know it
 - Add a brief description
-- Mention the genre/year if known
+
+Format like this (plain text, no markdown):
+Title: [title]
+Genre: [genres]
+Year: [year]
+Episodes: Season [X] - [Y] Episodes
+Latest Episode: Episode [N] - [title]
+Summary: [brief description]
 
 If you're not confident:
 - Say "This might be from [title], but I'm not completely certain."
 - Suggest similar-looking titles
 
-If the image is not from any entertainment media, describe what you see and ask how you can help.`,
+If the image is not from any entertainment media, describe what you see and ask how you can help.
+
+IMPORTANT: At the end of your response, on a new line, output the following metadata tag (this is for the system, not the user):
+[IDENTIFIED:title_here:type_here]
+where type is one of: movie, tv, anime
+Only include this tag if you confidently identified the content.`,
           },
           {
             role: "user",
@@ -63,8 +82,7 @@ If the image is not from any entertainment media, describe what you see and ask 
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorText = await response.text();
@@ -73,9 +91,29 @@ If the image is not from any entertainment media, describe what you see and ask 
     }
 
     const data = await response.json();
-    const aiMessage = data.choices[0]?.message?.content || "I couldn't analyze this image. Please try again.";
+    let aiMessage = data.choices[0]?.message?.content || "I couldn't analyze this image. Please try again.";
 
-    return new Response(JSON.stringify({ message: aiMessage }), {
+    // Extract identification metadata
+    let identifiedTitle: string | null = null;
+    let identifiedType: string | null = null;
+    const metaMatch = aiMessage.match(/\[IDENTIFIED:(.+?):(.+?)\]/);
+    if (metaMatch) {
+      identifiedTitle = metaMatch[1].trim();
+      identifiedType = metaMatch[2].trim();
+      // Remove the metadata tag from the displayed message
+      aiMessage = aiMessage.replace(/\[IDENTIFIED:.+?\]/, '').trim();
+    }
+
+    // Sanitize markdown
+    aiMessage = aiMessage.replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1');
+    aiMessage = aiMessage.replace(/#{1,6}\s*/g, '');
+    aiMessage = aiMessage.replace(/_{1,2}([^_]+)_{1,2}/g, '$1');
+
+    return new Response(JSON.stringify({
+      message: aiMessage,
+      identifiedTitle,
+      identifiedType,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
