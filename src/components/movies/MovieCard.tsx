@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Plus, Star, Check } from 'lucide-react';
 import { Movie, getImageUrl, getMovieDetails, getTVDetails } from '@/lib/tmdb';
+import { movieToWatchlistItem } from '@/hooks/useWatchlist';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
