@@ -313,6 +313,7 @@ export default function MoodMatch() {
         content: sanitizeAiContent(data.message),
         identifiedTitle: data.identifiedTitle || undefined,
         identifiedType: data.identifiedType || undefined,
+        tmdbMetadata: data.tmdbMetadata || undefined,
       };
       setChatHistory(prev => [...prev, aiMessage]);
 
