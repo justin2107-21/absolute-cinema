@@ -66,9 +66,10 @@ export default function MovieDetails() {
     );
   }
 
+  const displayTitle = movie.title || movie.name || 'Unknown';
   const backdropUrl = getImageUrl(movie.backdrop_path, 'original');
   const posterUrl = getImageUrl(movie.poster_path, 'w500');
-  const releaseYear = movie.release_date?.split('-')[0];
+  const releaseYear = (movie.release_date || movie.first_air_date)?.split('-')[0];
   const hours = Math.floor((movie.runtime || 0) / 60);
   const minutes = (movie.runtime || 0) % 60;
   const inWatchlist = isInWatchlist(movie.id);
