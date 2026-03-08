@@ -11,6 +11,10 @@ CRITICAL RULES:
 1. You do NOT automatically detect moods or emotions.
 2. You do NOT generate mood tags like "happy", "sad", "comforting" etc.
 3. You ONLY recommend content when the user EXPLICITLY asks for recommendations.
+4. NEVER use markdown formatting. No asterisks (*), no bold (**), no headings (##), no underscores (__). Write plain text only.
+5. NEVER output XML tags or tool call syntax in your response text.
+6. NEVER repeat the same phrase twice in a row. Vary your language on every response.
+7. Avoid starting multiple responses with "I'd be happy to help" or similar repeated openers. Use diverse, natural conversation starters.
 
 INTENT DETECTION:
 - Greetings (hello, hi, hey, good day, good morning, etc.): Respond warmly and conversationally. Offer guidance on what you can do.
@@ -27,7 +31,7 @@ When user sends a greeting, respond like:
 What would you like to do?"
 
 RECOMMENDATION RESPONSE:
-When user asks for recommendations, acknowledge their request warmly, then use the tool to extract preferences. Keep responses to 2-3 sentences.
+When user asks for recommendations, acknowledge their request warmly, then use the tool to extract preferences. Keep responses to 2-3 sentences. Example: "Great taste! Let me find some titles you'll love based on that."
 
 IMPORTANT: Never output mood labels. Never automatically show recommendation buttons for greetings or casual conversation.`;
 
@@ -37,7 +41,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, conversationHistory, hasImage, imageUrl } = await req.json();
+    const { message, conversationHistory } = await req.json();
 
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return new Response(JSON.stringify({ error: "Message is required" }), {
@@ -57,26 +61,12 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Build messages array
     const messages: any[] = [
       { role: "system", content: LUMINA_SYSTEM_PROMPT },
       ...(conversationHistory || []),
+      { role: "user", content: message },
     ];
 
-    // Handle image analysis
-    if (hasImage && imageUrl) {
-      messages.push({
-        role: "user",
-        content: [
-          { type: "text", text: message || "What movie, anime, or TV show is this from?" },
-          { type: "image_url", image_url: { url: imageUrl } },
-        ],
-      });
-    } else {
-      messages.push({ role: "user", content: message });
-    }
-
-    // Detect intent locally first for efficiency
     const intent = detectIntent(message);
 
     const requestBody: any = {
@@ -84,7 +74,6 @@ serve(async (req) => {
       messages,
     };
 
-    // Only include recommendation tool when intent is recommendation
     if (intent === "recommendation") {
       requestBody.tools = [
         {
@@ -95,39 +84,13 @@ serve(async (req) => {
             parameters: {
               type: "object",
               properties: {
-                intent: {
-                  type: "string",
-                  description: "What the user wants (e.g., 'find Filipino comedy', 'horror movies', 'romantic anime')",
-                },
-                genres: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "Preferred genres mentioned or inferred",
-                },
-                language: {
-                  type: "string",
-                  description: "Preferred language/country if mentioned. Empty string if not specified.",
-                },
-                tone: {
-                  type: "string",
-                  enum: ["light", "dark", "intense", "comforting", "inspiring", "bittersweet", "whimsical", "gritty", "any"],
-                  description: "The tone preference for recommendations",
-                },
-                popularity_preference: {
-                  type: "string",
-                  enum: ["trending", "top_rated", "underrated", "most_watched", "any"],
-                  description: "Whether user prefers trending, top-rated, underrated, or most watched content",
-                },
-                content_type: {
-                  type: "string",
-                  enum: ["movie", "tv", "anime", "both"],
-                  description: "Whether the user wants movies, TV series, anime, or all",
-                },
-                keywords: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "Key themes or specific preferences",
-                },
+                intent: { type: "string", description: "What the user wants" },
+                genres: { type: "array", items: { type: "string" }, description: "Preferred genres" },
+                language: { type: "string", description: "Preferred language/country if mentioned" },
+                tone: { type: "string", enum: ["light", "dark", "intense", "comforting", "inspiring", "bittersweet", "whimsical", "gritty", "any"], description: "Tone preference" },
+                popularity_preference: { type: "string", enum: ["trending", "top_rated", "underrated", "most_watched", "any"], description: "Popularity preference" },
+                content_type: { type: "string", enum: ["movie", "tv", "anime", "both"], description: "Content type" },
+                keywords: { type: "array", items: { type: "string" }, description: "Key themes" },
               },
               required: ["intent", "genres", "tone", "popularity_preference", "content_type"],
               additionalProperties: false,
@@ -151,14 +114,12 @@ serve(async (req) => {
       const status = response.status;
       if (status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (status === 402) {
         return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorText = await response.text();
@@ -172,7 +133,6 @@ serve(async (req) => {
     let aiMessage = choice.message.content || "";
     let preferences = null;
 
-    // Extract preferences from tool calls (only present for recommendation intent)
     if (choice.message.tool_calls) {
       for (const toolCall of choice.message.tool_calls) {
         if (toolCall.function.name === "analyze_preferences") {
@@ -185,7 +145,7 @@ serve(async (req) => {
       }
     }
 
-    // If tool call but no content, get a follow-up response
+    // If tool call but no content, generate a follow-up
     if (!aiMessage && preferences) {
       const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -196,7 +156,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: [
-            { role: "system", content: "You are Lumina AI. The user asked for recommendations and you've analyzed their preferences. Respond with a brief, warm acknowledgment (1-2 sentences) about what you found for them." },
+            { role: "system", content: "You are Lumina AI. The user asked for recommendations and you've analyzed their preferences. Respond with a brief, warm acknowledgment (1-2 sentences) about what you're finding for them. Do NOT use any markdown formatting (no asterisks, bold, headings). Write plain text only. Vary your language - never say 'I'd be happy to help'." },
             { role: "user", content: message },
           ],
         }),
@@ -209,6 +169,9 @@ serve(async (req) => {
         aiMessage = "Great choice! Let me find some recommendations for you.";
       }
     }
+
+    // Strip any remaining tool call artifacts or markdown from the message
+    aiMessage = sanitizeResponse(aiMessage);
 
     if (!aiMessage) {
       aiMessage = "I'm here to help! What would you like to talk about or are you looking for recommendations?";
@@ -231,22 +194,29 @@ serve(async (req) => {
   }
 });
 
+function sanitizeResponse(text: string): string {
+  // Remove XML-style tool tags
+  let cleaned = text.replace(/<\/?[a-z_]+(?:\s[^>]*)?>(?:\{[^}]*\})?/gi, '');
+  // Remove markdown formatting
+  cleaned = cleaned.replace(/#{1,6}\s*/g, '');
+  cleaned = cleaned.replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1');
+  cleaned = cleaned.replace(/_{1,2}([^_]+)_{1,2}/g, '$1');
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  return cleaned;
+}
+
 function detectIntent(message: string): "greeting" | "conversation" | "recommendation" | "search" {
   const l = message.toLowerCase().trim();
 
-  // Greetings
   if (/^(hi|hello|hey|good\s*(day|morning|afternoon|evening)|howdy|yo|sup|what'?s\s*up|greetings)\b/i.test(l)) {
-    // But if they also ask for recommendations in the same message, treat as recommendation
     if (/recommend|suggest|watch|show me|find me/i.test(l)) return "recommendation";
     return "greeting";
   }
 
-  // Recommendation requests
-  if (/recommend|suggest|what\s*(should|can|to)\s*i\s*watch|give me|show me.*(?:movie|film|anime|series|show)|find me.*(?:movie|film|anime|series|show)|looking for.*(?:movie|film|anime|series|show)/i.test(l)) {
+  if (/recommend|suggest|what\s*(should|can|to)\s*i\s*watch|give me|show me.*(?:movie|film|anime|series|show)|find me.*(?:movie|film|anime|series|show)|looking for.*(?:movie|film|anime|series|show)|similar to/i.test(l)) {
     return "recommendation";
   }
 
-  // Search requests
   if (/^(search|find|look up|where can i watch)\b/i.test(l)) {
     return "search";
   }
