@@ -38,7 +38,7 @@ export default function Friends() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuth();
-  const { friends, pendingRequests, activities, isLoading, sendFriendRequest, acceptRequest, declineRequest, searchUsers } = useFriends();
+  const { friends, pendingRequests, activities, isLoading, sendFriendRequest, acceptRequest, declineRequest, searchUsers, refreshFriends } = useFriends();
   const { getOrCreateConversation } = useChat();
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [searchQuery, setSearchQuery] = useState('');
