@@ -152,6 +152,7 @@ export default function TVSeries() {
                 <MovieCard 
                   key={show.id} 
                   movie={adaptTVToMovie(show)} 
+                  mediaType="tv"
                   onAddToWatchlist={addToWatchlist} 
                   onMarkWatched={markAsWatched}
                   onClick={() => navigate(`/tv/${show.id}`)} 
@@ -166,8 +167,9 @@ export default function TVSeries() {
                 <MovieCard 
                   key={show.id} 
                   movie={adaptTVToMovie(show)} 
+                  mediaType="tv"
                   onAddToWatchlist={addToWatchlist} 
-                  onMarkWatched={markAsWatched}
+                  onMarkWatched={markAsWatchlist}
                   onClick={() => navigate(`/tv/${show.id}`)} 
                   isInWatchlist={isInWatchlist(show.id)} 
                   isWatched={isWatched(show.id)} 
@@ -180,6 +182,7 @@ export default function TVSeries() {
                 <MovieCard 
                   key={show.id} 
                   movie={adaptTVToMovie(show)} 
+                  mediaType="tv"
                   onAddToWatchlist={addToWatchlist} 
                   onMarkWatched={markAsWatched}
                   onClick={() => navigate(`/tv/${show.id}`)} 
@@ -194,6 +197,7 @@ export default function TVSeries() {
                 <MovieCard 
                   key={show.id} 
                   movie={adaptTVToMovie(show)} 
+                  mediaType="tv"
                   onAddToWatchlist={addToWatchlist} 
                   onMarkWatched={markAsWatched}
                   onClick={() => navigate(`/tv/${show.id}`)} 
@@ -208,6 +212,7 @@ export default function TVSeries() {
                 <MovieCard 
                   key={show.id} 
                   movie={adaptTVToMovie(show)} 
+                  mediaType="tv"
                   onAddToWatchlist={addToWatchlist} 
                   onMarkWatched={markAsWatched}
                   onClick={() => navigate(`/tv/${show.id}`)} 
