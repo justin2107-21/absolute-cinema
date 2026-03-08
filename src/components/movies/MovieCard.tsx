@@ -47,12 +47,16 @@ export function MovieCard({
   const releaseYear = movie.release_date?.split('-')[0];
   const rating = movie.vote_average?.toFixed(1);
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClick?.(movie);
+  };
+
   return (
     <motion.div
       className={cn("relative flex-shrink-0 cursor-pointer", sizeClasses[size])}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => onClick?.(movie)}
       whileHover={{ scale: 1.05, zIndex: 20 }}
       transition={{ duration: 0.2 }}
     >
