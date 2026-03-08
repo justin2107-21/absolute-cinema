@@ -38,7 +38,7 @@ export default function Friends() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuth();
-  const { friends, pendingRequests, activities, isLoading, sendFriendRequest, acceptRequest, declineRequest, searchUsers } = useFriends();
+  const { friends, pendingRequests, activities, isLoading, sendFriendRequest, acceptRequest, declineRequest, searchUsers, refreshFriends } = useFriends();
   const { getOrCreateConversation } = useChat();
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,38 +55,88 @@ export default function Friends() {
   const [activeGroup, setActiveGroup] = useState<{ id: string; name: string } | null>(null);
   const [nicknames, setNicknames] = useState<Record<string, string>>({});
 
-  // Load nicknames for all friends
-  useEffect(() => {
-    const loadNicknames = async () => {
-      if (!user || friends.length === 0) return;
-      // Get all DM conversations for the current user
-      const { data: convos } = await supabase
-        .from('dm_conversations')
-        .select('id, participant1_id, participant2_id')
-        .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`);
-      if (!convos || convos.length === 0) return;
+  // Load nicknames for all friends + realtime subscription
+  const loadNicknames = async () => {
+    if (!user || friends.length === 0) return;
+    const { data: convos } = await supabase
+      .from('dm_conversations')
+      .select('id, participant1_id, participant2_id')
+      .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`);
+    if (!convos || convos.length === 0) return;
 
-      const convoIds = convos.map(c => c.id);
-      const { data: nns } = await supabase
-        .from('chat_nicknames')
-        .select('conversation_id, user_id, nickname')
-        .in('conversation_id', convoIds);
-      if (!nns) return;
+    const convoIds = convos.map(c => c.id);
+    const { data: nns } = await supabase
+      .from('chat_nicknames')
+      .select('conversation_id, user_id, nickname')
+      .in('conversation_id', convoIds);
+    if (!nns) return;
 
-      const map: Record<string, string> = {};
-      for (const nn of nns) {
-        // Find which friend this nickname is for
-        const convo = convos.find(c => c.id === nn.conversation_id);
-        if (!convo) continue;
-        const friendId = convo.participant1_id === user.id ? convo.participant2_id : convo.participant1_id;
-        if (nn.user_id === friendId) {
-          map[friendId] = nn.nickname;
-        }
+    const map: Record<string, string> = {};
+    for (const nn of nns) {
+      const convo = convos.find(c => c.id === nn.conversation_id);
+      if (!convo) continue;
+      const friendId = convo.participant1_id === user.id ? convo.participant2_id : convo.participant1_id;
+      if (nn.user_id === friendId) {
+        map[friendId] = nn.nickname;
       }
-      setNicknames(map);
-    };
+    }
+    setNicknames(map);
+  };
+
+  useEffect(() => {
     loadNicknames();
   }, [user, friends]);
+
+  // Realtime: listen for nickname changes
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('nicknames-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'chat_nicknames',
+      }, () => {
+        loadNicknames();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, friends]);
+
+  // Realtime: listen for friend request changes
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('friends-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'friend_requests',
+      }, () => {
+        refreshFriends();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  // Realtime: listen for profile updates (avatar, username changes)
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('profiles-realtime')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+      }, () => {
+        refreshFriends();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   const getFriendDisplayName = (friend: FriendProfile) => {
     return nicknames[friend.user_id] || friend.username || 'User';
