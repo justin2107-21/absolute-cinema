@@ -28,17 +28,21 @@ export function UnifiedCard({ content, onClick, size = 'md', showTypeBadge = fal
   const releaseYear = content.releaseDate?.split('-')[0];
   const rating = content.rating?.toFixed(1);
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClick?.();
+  };
+
   return (
     <motion.div
       className={cn("relative flex-shrink-0 cursor-pointer", sizeClasses[size])}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={onClick}
       whileHover={{ scale: 1.05, zIndex: 20 }}
       transition={{ duration: 0.2 }}
     >
-      {/* Base poster card */}
-      <div className="relative h-full w-full overflow-hidden rounded-xl">
+      {/* Base poster card - clickable */}
+      <div className="relative h-full w-full overflow-hidden rounded-xl" onClick={handleCardClick}>
         {content.poster ? (
           <img
             src={content.poster}
@@ -81,8 +85,9 @@ export function UnifiedCard({ content, onClick, size = 'md', showTypeBadge = fal
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute -inset-4 z-30 rounded-2xl overflow-hidden bg-card shadow-2xl border border-border"
+            className="absolute -inset-4 z-30 rounded-2xl overflow-hidden bg-card shadow-2xl border border-border cursor-pointer"
             style={{ minWidth: '280px', minHeight: '320px' }}
+            onClick={handleCardClick}
           >
             {/* Backdrop */}
             <div className="relative h-36 w-full bg-secondary">

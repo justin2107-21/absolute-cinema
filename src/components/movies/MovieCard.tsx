@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Plus, Star, Check } from 'lucide-react';
-import { Movie, getImageUrl, getMovieDetails } from '@/lib/tmdb';
+import { Movie, getImageUrl, getMovieDetails, getTVDetails } from '@/lib/tmdb';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -14,6 +14,8 @@ interface MovieCardProps {
   isInWatchlist?: boolean;
   isWatched?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  /** Set to 'tv' when displaying TV show results so hover details fetch the correct content */
+  mediaType?: 'movie' | 'tv';
 }
 
 export function MovieCard({
@@ -24,13 +26,14 @@ export function MovieCard({
   isInWatchlist = false,
   isWatched = false,
   size = 'md',
+  mediaType = 'movie',
 }: MovieCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const posterUrl = getImageUrl(movie.poster_path, size === 'sm' ? 'w200' : 'w300');
 
   const { data: movieDetails } = useQuery({
-    queryKey: ['movieDetails', movie.id],
-    queryFn: () => getMovieDetails(movie.id),
+    queryKey: ['contentDetails', mediaType, movie.id],
+    queryFn: () => mediaType === 'tv' ? getTVDetails(movie.id) : getMovieDetails(movie.id),
     enabled: isHovered,
   });
 
@@ -47,17 +50,21 @@ export function MovieCard({
   const releaseYear = movie.release_date?.split('-')[0];
   const rating = movie.vote_average?.toFixed(1);
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClick?.(movie);
+  };
+
   return (
     <motion.div
       className={cn("relative flex-shrink-0 cursor-pointer", sizeClasses[size])}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => onClick?.(movie)}
       whileHover={{ scale: 1.05, zIndex: 20 }}
       transition={{ duration: 0.2 }}
     >
-      {/* Base poster card */}
-      <div className="relative h-full w-full overflow-hidden rounded-xl">
+      {/* Base poster card - clickable */}
+      <div className="relative h-full w-full overflow-hidden rounded-xl" onClick={handleCardClick}>
         {posterUrl ? (
           <img
             src={posterUrl}
@@ -103,8 +110,9 @@ export function MovieCard({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute -inset-4 z-30 rounded-2xl overflow-hidden bg-card shadow-2xl border border-border"
+            className="absolute -inset-4 z-30 rounded-2xl overflow-hidden bg-card shadow-2xl border border-border cursor-pointer"
             style={{ minWidth: '280px', minHeight: '320px' }}
+            onClick={handleCardClick}
           >
             {/* Trailer or backdrop */}
             <div className="relative h-36 w-full bg-secondary">
