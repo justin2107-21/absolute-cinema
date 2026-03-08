@@ -14,7 +14,7 @@ interface MovieCardProps {
   onClick?: (movie: Movie) => void;
   isInWatchlist?: boolean;
   isWatched?: boolean;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'grid';
   /** Set to 'tv' when displaying TV show results so hover details fetch the correct content */
   mediaType?: 'movie' | 'tv';
 }
@@ -46,6 +46,7 @@ export function MovieCard({
     sm: 'w-24 h-36',
     md: 'w-28 h-40',
     lg: 'w-36 h-54',
+    grid: 'w-full aspect-[2/3]',
   };
 
   const releaseYear = movie.release_date?.split('-')[0];
