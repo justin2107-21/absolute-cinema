@@ -127,11 +127,50 @@ export default function Auth() {
         >
           {/* Logo */}
           <div className="text-center space-y-2">
-            <img 
-              src={logoImage} 
-              alt="Absolute Cinema" 
-              className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg"
-            />
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0, rotate: -180 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], opacity: { duration: 0.4 } }}
+              className="relative mx-auto w-24 h-24"
+            >
+              {/* Glow rings */}
+              <motion.div
+                className="absolute inset-0 flex items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                <motion.div
+                  className="absolute w-24 h-24 rounded-full border-2 border-primary/20"
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0, 0.3] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
+                />
+                <motion.div
+                  className="absolute w-24 h-24 rounded-full border-2 border-primary/20"
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0, 0.3] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeOut', delay: 0.6 }}
+                />
+              </motion.div>
+
+              {/* Spinning logo */}
+              <motion.img
+                src={logoImage}
+                alt="Absolute Cinema"
+                className="h-24 w-24 rounded-full object-cover shadow-2xl"
+                animate={{
+                  rotate: 360,
+                  boxShadow: [
+                    '0 0 20px hsl(var(--primary) / 0.3)',
+                    '0 0 40px hsl(var(--primary) / 0.5)',
+                    '0 0 20px hsl(var(--primary) / 0.3)',
+                  ],
+                }}
+                transition={{
+                  rotate: { duration: 20, repeat: Infinity, ease: 'linear' },
+                  boxShadow: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
+                }}
+              />
+            </motion.div>
             <h1 className="text-4xl font-bold uppercase tracking-wider" style={{ fontFamily: "'Oswald', sans-serif" }}>
               <span className="text-foreground">Absolute</span>
               <span className="text-primary ml-2">Cinema</span>
