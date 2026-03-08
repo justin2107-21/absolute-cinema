@@ -9,7 +9,8 @@ import { useQuery } from '@tanstack/react-query';
 
 interface MovieCardProps {
   movie: Movie;
-  onAddToWatchlist?: (movie: Movie) => void;
+  onAddToWatchlist?: (item: any) => void;
+  onMarkWatched?: (item: any) => void;
   onMarkWatched?: (movie: Movie) => void;
   onClick?: (movie: Movie) => void;
   isInWatchlist?: boolean;
@@ -166,7 +167,7 @@ export function MovieCard({
                   className="flex-1"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onAddToWatchlist?.(movie);
+                    onAddToWatchlist?.(movieToWatchlistItem(movie, mediaType));
                   }}
                 >
                   {isInWatchlist ? (
@@ -186,7 +187,7 @@ export function MovieCard({
                   variant="glass"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onMarkWatched?.(movie);
+                    onMarkWatched?.(movieToWatchlistItem(movie, mediaType));
                   }}
                 >
                   <Play className="h-4 w-4" />
