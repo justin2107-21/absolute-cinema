@@ -209,6 +209,14 @@ export default function MoodMatch() {
               identifiedTitle: meta.identifiedTitle || undefined,
               identifiedType: meta.identifiedType || undefined,
               tmdbMetadata: meta.tmdbMetadata || undefined,
+              anilistMetadata: meta.anilistMetadata || undefined,
+              character: meta.character || undefined,
+              genre: meta.genre || undefined,
+              year: meta.year || undefined,
+              season: meta.season || undefined,
+              episode: meta.episode || undefined,
+              episodeTitle: meta.episodeTitle || undefined,
+              timestamp: meta.timestamp || undefined,
             };
           }));
         }
