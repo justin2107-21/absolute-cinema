@@ -31,7 +31,9 @@ When user sends a greeting, respond like:
 What would you like to do?"
 
 RECOMMENDATION RESPONSE:
-When user asks for recommendations, acknowledge their request warmly, then use the tool to extract preferences. Keep responses to 2-3 sentences. Example: "Great taste! Let me find some titles you'll love based on that."
+When user asks for recommendations, acknowledge their request warmly, then use the tool to extract preferences.
+IMPORTANT: When mentioning specific titles in your response, you MUST also include them in the tool call's "specific_titles" parameter so the recommendation cards match your text.
+Keep responses to 2-4 sentences. Example: "Great taste! Let me find some titles you'll love based on that."
 
 IMPORTANT: Never output mood labels. Never automatically show recommendation buttons for greetings or casual conversation.`;
 
@@ -80,7 +82,7 @@ serve(async (req) => {
           type: "function",
           function: {
             name: "analyze_preferences",
-            description: "Extract content preferences from user's recommendation request",
+            description: "Extract content preferences from user's recommendation request. IMPORTANT: If you mention specific titles in your response text, list them in specific_titles so the UI can show matching cards.",
             parameters: {
               type: "object",
               properties: {
@@ -91,6 +93,8 @@ serve(async (req) => {
                 popularity_preference: { type: "string", enum: ["trending", "top_rated", "underrated", "most_watched", "any"], description: "Popularity preference" },
                 content_type: { type: "string", enum: ["movie", "tv", "anime", "both"], description: "Content type" },
                 keywords: { type: "array", items: { type: "string" }, description: "Key themes" },
+                specific_titles: { type: "array", items: { type: "string" }, description: "Specific titles you are recommending in your response. Include every title you mention by name." },
+                similar_to: { type: "string", description: "If user asks for content similar to a specific title, put that title here" },
               },
               required: ["intent", "genres", "tone", "popularity_preference", "content_type"],
               additionalProperties: false,
@@ -145,6 +149,14 @@ serve(async (req) => {
       }
     }
 
+    // If we have preferences but no specific_titles, try to extract titles from the AI message
+    if (preferences && (!preferences.specific_titles || preferences.specific_titles.length === 0) && aiMessage) {
+      const extractedTitles = extractTitlesFromText(aiMessage);
+      if (extractedTitles.length > 0) {
+        preferences.specific_titles = extractedTitles;
+      }
+    }
+
     // If tool call but no content, generate a follow-up
     if (!aiMessage && preferences) {
       const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -156,8 +168,9 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: [
-            { role: "system", content: "You are Lumina AI. The user asked for recommendations and you've analyzed their preferences. Respond with a brief, warm acknowledgment (1-2 sentences) about what you're finding for them. Do NOT use any markdown formatting (no asterisks, bold, headings). Write plain text only. Vary your language - never say 'I'd be happy to help'." },
+            { role: "system", content: "You are Lumina AI. The user asked for recommendations and you've analyzed their preferences. Respond with a brief, warm acknowledgment (2-3 sentences) about what you're finding for them. Mention the specific titles you're recommending. Do NOT use any markdown formatting (no asterisks, bold, headings). Write plain text only. Vary your language - never say 'I'd be happy to help'." },
             { role: "user", content: message },
+            { role: "assistant", content: `I will recommend these titles: ${(preferences.specific_titles || []).join(', ')}` },
           ],
         }),
       });
@@ -203,6 +216,29 @@ function sanitizeResponse(text: string): string {
   cleaned = cleaned.replace(/_{1,2}([^_]+)_{1,2}/g, '$1');
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
   return cleaned;
+}
+
+// Extract title-like phrases from AI response text
+function extractTitlesFromText(text: string): string[] {
+  const titles: string[] = [];
+  // Match patterns like "Title Name" at start of sentences or after common patterns
+  // Look for capitalized multi-word phrases that look like titles
+  const patterns = [
+    /(?:^|\.\s+|,\s+)([A-Z][A-Za-z0-9':!?\-\s]{2,30}?)(?=\s+(?:is|was|has|features?|follows?|presents?|offers?|provides?|captures?|shares?|combines?|blends?))/gm,
+    /(?:like|watch|try|check out|enjoy|love)\s+([A-Z][A-Za-z0-9':!?\-\s]{2,30}?)(?=[,.\s]|$)/gi,
+  ];
+  
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const title = match[1].trim();
+      if (title.length > 2 && !titles.includes(title)) {
+        titles.push(title);
+      }
+    }
+  }
+  
+  return titles;
 }
 
 function detectIntent(message: string): "greeting" | "conversation" | "recommendation" | "search" {
