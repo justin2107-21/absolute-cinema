@@ -59,7 +59,7 @@ export default function MovieDetails() {
     return (
       <AppLayout hideNav>
         <div className="flex flex-col items-center justify-center min-h-screen">
-          <p className="text-muted-foreground">Movie not found</p>
+          <p className="text-muted-foreground">{isTV ? 'TV Show' : 'Movie'} not found</p>
           <Button onClick={() => navigate(-1)} className="mt-4">Go Back</Button>
         </div>
       </AppLayout>
