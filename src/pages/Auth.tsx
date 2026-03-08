@@ -9,9 +9,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '@/integrations/supabase/client';
 import logoImage from '@/assets/logo.png';
 
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'forgot';
 
 const emailSchema = z.string().email('Please enter a valid email');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -40,12 +41,35 @@ export default function Auth() {
     }
   }, [isAuthenticated, navigate, returnTo]);
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const emailResult = emailSchema.safeParse(email);
+      if (!emailResult.success) {
+        toast.error(emailResult.error.errors[0].message);
+        setIsLoading(false);
+        return;
+      }
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success('Password reset email sent! Check your inbox.');
+      setMode('login');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send reset email');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === 'forgot') return handleForgotPassword(e);
     setIsLoading(true);
 
     try {
-      // Validate inputs
       const emailResult = emailSchema.safeParse(email);
       if (!emailResult.success) {
         toast.error(emailResult.error.errors[0].message);
@@ -176,7 +200,7 @@ export default function Auth() {
               <span className="text-primary ml-2">Cinema</span>
             </h1>
             <p className="text-muted-foreground">
-              {mode === 'login' ? 'Welcome back!' : 'Create your account'}
+              {mode === 'login' ? 'Welcome back!' : mode === 'signup' ? 'Create your account' : 'Reset your password'}
             </p>
           </div>
 
@@ -214,28 +238,38 @@ export default function Auth() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-12 pr-12"
-                  required
-                  minLength={6}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
+            {mode !== 'forgot' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-12 pr-12"
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {mode === 'login' && (
+              <div className="text-right">
+                <Button variant="link" className="text-primary p-0 h-auto text-sm" onClick={() => setMode('forgot')}>
+                  Forgot password?
+                </Button>
+              </div>
+            )}
 
             <Button
               type="submit"
@@ -247,8 +281,10 @@ export default function Auth() {
                 <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
               ) : mode === 'login' ? (
                 'Sign In'
-              ) : (
+              ) : mode === 'signup' ? (
                 'Create Account'
+              ) : (
+                'Send Reset Link'
               )}
             </Button>
           </form>
@@ -282,14 +318,14 @@ export default function Auth() {
           </Button>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
-              {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
+              {mode === 'forgot' ? 'Remember your password?' : mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
             </p>
             <Button
               variant="link"
               className="text-primary"
-              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+              onClick={() => setMode(mode === 'forgot' ? 'login' : mode === 'login' ? 'signup' : 'login')}
             >
-              {mode === 'login' ? 'Sign up' : 'Sign in'}
+              {mode === 'forgot' ? 'Back to Sign In' : mode === 'login' ? 'Sign up' : 'Sign in'}
             </Button>
           </div>
         </motion.div>

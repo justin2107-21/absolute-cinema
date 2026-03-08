@@ -27,6 +27,7 @@ import FriendProfile from "@/pages/FriendProfile";
 import Auth from "@/pages/Auth";
 import AnimeDetails from "@/pages/AnimeDetails";
 import TopAnime from "@/pages/TopAnime";
+import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
 
 const App = () => {
@@ -84,6 +85,7 @@ const App = () => {
                     <Route path="/friends" element={<Friends />} />
                     <Route path="/user/:userId" element={<FriendProfile />} />
                     <Route path="/auth" element={<Auth />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/top-anime" element={<TopAnime />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
