@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { lovable } from '@/integrations/lovable/index';
 import logoImage from '@/assets/logo.png';
 
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'forgot';
 
 const emailSchema = z.string().email('Please enter a valid email');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
