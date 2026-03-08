@@ -8,6 +8,7 @@ import { MovieRow } from '@/components/movies/MovieRow';
 import { MovieRowSkeleton } from '@/components/movies/MovieSkeleton';
 import { HeroSlider } from '@/components/home/HeroSlider';
 import { UnifiedCard } from '@/components/content/UnifiedCard';
+import { CategoryResults } from '@/components/home/CategoryResults';
 
 import { getDiversifiedHomeContent } from '@/lib/tmdb';
 import { getTrendingAnime, getUpcomingNextSeasonAnime, getAllTimePopularAnime, getTop100Anime } from '@/lib/anilist';
@@ -41,7 +42,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { addToWatchlist, markAsWatched, isInWatchlist, isWatched, watched, watchlist } = useWatchlist();
   const [showCategories, setShowCategories] = useState(false);
-
+  const [selectedCategory, setSelectedCategory] = useState<{ id: number; name: string } | null>(null);
   const { data: homeContent, isLoading } = useQuery({
     queryKey: ['home-diversified'],
     queryFn: getDiversifiedHomeContent,
@@ -101,8 +102,21 @@ export default function Home() {
 
   const handleCategorySelect = (genreId: number, genreName: string) => {
     setShowCategories(false);
-    navigate(`/search?genre=${genreId}&genreName=${genreName}`);
+    setSelectedCategory({ id: genreId, name: genreName });
   };
+
+  // If a category is selected, show category results
+  if (selectedCategory) {
+    return (
+      <AppLayout>
+        <CategoryResults
+          genreId={selectedCategory.id}
+          genreName={selectedCategory.name}
+          onBack={() => setSelectedCategory(null)}
+        />
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
