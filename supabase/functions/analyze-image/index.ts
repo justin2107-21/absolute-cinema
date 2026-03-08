@@ -232,7 +232,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are Lumina AI, an entertainment expert specializing in movies, TV shows, anime, and manga. When shown an image, identify the content and provide detailed analysis.
+            content: `You are MoodMatch AI, an entertainment expert specializing in movies, TV shows, anime, and manga. When shown an image, identify the content and provide detailed analysis.
 
 CRITICAL OUTPUT FORMAT - You MUST output a structured block at the END of your response:
 [METADATA]
