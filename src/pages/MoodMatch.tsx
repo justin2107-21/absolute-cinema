@@ -108,6 +108,7 @@ interface LuminaMessage {
   identifiedTitle?: string;
   identifiedType?: 'movie' | 'tv' | 'anime';
   tmdbMetadata?: TmdbMetadata | null;
+  recsVisible?: boolean; // Whether recommendations are currently shown
 }
 
 export default function MoodMatch() {
@@ -247,7 +248,7 @@ export default function MoodMatch() {
     try {
       const recs = await getMoodRecommendations(prefs);
       setChatHistory(prev => prev.map((m, i) =>
-        i === messageIndex ? { ...m, recommendations: recs, isLoadingRecs: false, showRecommendations: false } : m
+        i === messageIndex ? { ...m, recommendations: recs, isLoadingRecs: false, showRecommendations: false, recsVisible: true } : m
       ));
     } catch (error) {
       console.error('Error fetching recommendations:', error);
@@ -256,6 +257,12 @@ export default function MoodMatch() {
         i === messageIndex ? { ...m, isLoadingRecs: false } : m
       ));
     }
+  };
+
+  const toggleRecsVisibility = (messageIndex: number) => {
+    setChatHistory(prev => prev.map((m, i) =>
+      i === messageIndex ? { ...m, recsVisible: !m.recsVisible } : m
+    ));
   };
 
   // ─── IMAGE HANDLING (staged, not auto-sent) ───
@@ -477,9 +484,19 @@ export default function MoodMatch() {
   // ─── INLINE RECS RENDERER ───
   const renderInlineRecs = (recs: MoodRecommendations) => (
     <div className="space-y-5 mt-3">
+      {recs.anime && recs.anime.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-semibold flex items-center gap-1.5 text-xs text-primary"><Play className="h-3.5 w-3.5" /> Anime</h4>
+          <div className="grid grid-cols-3 gap-2">
+            {recs.anime.slice(0, 6).map(a => (
+              <AnimeCard key={a.id} anime={a} size="sm" onClick={() => handleAnimeClick(a)} />
+            ))}
+          </div>
+        </div>
+      )}
       {recs.popular.length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-semibold flex items-center gap-1.5 text-xs text-primary"><Star className="h-3.5 w-3.5" /> Popular</h4>
+          <h4 className="font-semibold flex items-center gap-1.5 text-xs text-primary"><Star className="h-3.5 w-3.5" /> {recs.trending.length === 0 && recs.underrated.length === 0 ? 'Recommendations' : 'Popular'}</h4>
           <div className="grid grid-cols-3 gap-2">
             {recs.popular.slice(0, 6).map(movie => (
               <MovieCard key={movie.id} movie={movie} size="sm" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched} onClick={() => navigate(`/movie/${movie.id}`)} isInWatchlist={isInWatchlist(movie.id)} isWatched={isWatched(movie.id)} />
@@ -809,8 +826,34 @@ export default function MoodMatch() {
                                 </div>
                               )}
 
-                              {/* Inline recommendations */}
-                              {chat.recommendations && renderInlineRecs(chat.recommendations)}
+                              {/* VIEW RECOMMENDED toggle button */}
+                              {chat.recommendations && !chat.recsVisible && (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  className="mt-3 w-full gap-2"
+                                  onClick={() => toggleRecsVisibility(index)}
+                                >
+                                  <Film className="h-4 w-4" />
+                                  View Recommended
+                                </Button>
+                              )}
+
+                              {/* Inline recommendations (collapsible) */}
+                              {chat.recommendations && chat.recsVisible && (
+                                <>
+                                  {renderInlineRecs(chat.recommendations)}
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="mt-3 w-full gap-2 text-xs"
+                                    onClick={() => toggleRecsVisibility(index)}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                    Hide Recommendations
+                                  </Button>
+                                </>
+                              )}
 
                               {/* Action buttons for identified content */}
                               {chat.role === 'assistant' && renderIdentifiedActions(chat)}
