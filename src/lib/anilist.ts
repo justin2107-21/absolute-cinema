@@ -138,23 +138,23 @@ const MEDIA_FIELDS = `
   seasonYear
 `;
 
-// Map moods to AniList genres
+// Therapeutic mood-to-genre mapping — content to HELP with the mood
 const moodToAniListGenres: Record<string, string[]> = {
-  happy: ['Comedy', 'Slice of Life'],
-  sad: ['Drama', 'Tragedy'],
-  stressed: ['Slice of Life', 'Comedy'],
-  romantic: ['Romance'],
-  excited: ['Action', 'Adventure'],
-  relaxed: ['Slice of Life', 'Music'],
-  lonely: ['Drama', 'Romance'],
-  anxious: ['Comedy', 'Slice of Life'],
-  burned_out: ['Slice of Life', 'Comedy'],
-  nostalgic: ['Drama', 'Slice of Life'],
-  heartbroken: ['Drama', 'Romance'],
-  motivated: ['Sports', 'Action'],
-  bored: ['Action', 'Mystery', 'Thriller'],
-  hopeful: ['Drama', 'Fantasy'],
-  curious: ['Mystery', 'Sci-Fi', 'Psychological'],
+  happy: ['Comedy', 'Slice of Life'],        // keep the joy
+  sad: ['Comedy', 'Slice of Life'],           // cheer you up
+  stressed: ['Slice of Life', 'Comedy'],      // lighten the load
+  romantic: ['Romance'],                       // lean into it
+  excited: ['Action', 'Adventure'],            // match the energy
+  relaxed: ['Slice of Life', 'Music'],         // keep the calm
+  lonely: ['Comedy', 'Romance', 'Slice of Life'], // warm & comforting
+  anxious: ['Comedy', 'Slice of Life'],        // soothing & fun
+  burned_out: ['Slice of Life', 'Comedy'],     // easy, cozy watch
+  nostalgic: ['Drama', 'Slice of Life'],       // warm memories
+  heartbroken: ['Comedy', 'Slice of Life'],    // healing & uplifting
+  motivated: ['Sports', 'Action'],             // fuel the fire
+  bored: ['Action', 'Mystery', 'Thriller'],    // something gripping
+  hopeful: ['Drama', 'Fantasy'],               // inspiring
+  curious: ['Mystery', 'Sci-Fi', 'Psychological'], // feed the mind
 };
 
 async function anilistFetch<T>(query: string, variables: Record<string, unknown> = {}): Promise<T | null> {
