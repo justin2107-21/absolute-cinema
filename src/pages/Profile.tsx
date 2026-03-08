@@ -413,6 +413,20 @@ export default function Profile() {
             >
               <X className="h-5 w-5" />
             </Button>
+            {isAuthenticated && (
+              <Button
+                variant="ghost"
+                className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white hover:bg-white/10 z-10 gap-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAvatarViewer(false);
+                  document.getElementById('avatar-file-input')?.click();
+                }}
+              >
+                <Camera className="h-5 w-5" />
+                <span>Change Profile Picture</span>
+              </Button>
+            )}
             <motion.img
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
