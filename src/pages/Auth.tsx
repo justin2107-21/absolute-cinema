@@ -132,7 +132,7 @@ export default function Auth() {
               alt="Absolute Cinema" 
               className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg"
             />
-            <h1 className="text-3xl font-bold">
+            <h1 className="text-4xl font-bold uppercase tracking-wider" style={{ fontFamily: "'Oswald', sans-serif" }}>
               <span className="text-foreground">Absolute</span>
               <span className="text-primary ml-2">Cinema</span>
             </h1>
