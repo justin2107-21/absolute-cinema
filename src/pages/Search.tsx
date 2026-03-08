@@ -215,7 +215,7 @@ export default function Search() {
                   {filteredTV.slice(0, 18).map((show, index) => (
                     <motion.div key={`tv-${show.id}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
                       <MovieCard movie={show} size="sm" mediaType="tv" onAddToWatchlist={addToWatchlist} onMarkWatched={markAsWatched}
-                        onClick={() => navigate(`/tv/${show.id}`)} isInWatchlist={isInWatchlist(show.id)} isWatched={isWatched(show.id)} />
+                        onClick={() => navigate(`/tv/${show.id}`)} isInWatchlist={isInWatchlist(`tmdb-tv-${show.id}`)} isWatched={isWatched(`tmdb-tv-${show.id}`)} />
                     </motion.div>
                   ))}
                 </MovieGrid>
