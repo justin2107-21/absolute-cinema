@@ -160,20 +160,55 @@ export function CommentSection({ contentType, contentId, seasonNumber, episodeNu
     return () => { supabase.removeChannel(channel); };
   }, [contentId, refetch]);
 
+  // Helper to find and update a comment in the tree (top-level or reply)
+  const updateCommentInTree = (comments: Comment[], commentId: string, updater: (c: Comment) => Comment | null): Comment[] => {
+    const result: Comment[] = [];
+    for (const c of comments) {
+      if (c.id === commentId) {
+        const updated = updater(c);
+        if (updated) result.push(updated);
+      } else {
+        const updatedReplies = (c.replies || []).map(r => r.id === commentId ? updater(r) : r).filter(Boolean) as Comment[];
+        result.push({ ...c, replies: updatedReplies });
+      }
+    }
+    return result;
+  };
+
   const addComment = useMutation({
     mutationFn: async ({ content, parentId }: { content: string; parentId?: string }) => {
       if (!user) throw new Error('Not authenticated');
       const trimmed = content.trim();
       if (!trimmed || trimmed.length > MAX_COMMENT_LENGTH) throw new Error('Invalid length');
-      const { error } = await supabase.from('comments').insert({
+      const { data, error } = await supabase.from('comments').insert({
         user_id: user.id, content_type: contentType, content_id: contentId,
         season_number: seasonNumber, episode_number: episodeNumber, chapter_number: chapterNumber,
         content: trimmed, parent_id: parentId || null,
-      });
+      }).select().single();
       if (error) throw error;
+      return { ...data, parentId };
     },
-    onSuccess: () => { setNewComment(''); setReplyContent(''); setReplyTo(null); queryClient.invalidateQueries({ queryKey }); toast.success('Comment posted!'); },
-    onError: () => { toast.error('Failed to post comment'); },
+    onMutate: async ({ content, parentId }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<Comment[]>(queryKey);
+      const { data: profileData } = await supabase.from('profiles').select('username, avatar_url').eq('user_id', user!.id).single();
+      const optimistic: Comment = {
+        id: `temp-${Date.now()}`, user_id: user!.id, content: content.trim(), parent_id: parentId || null,
+        likes_count: 0, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        is_edited: false, profile: profileData as Profile | null, replies: [], reactions: [], userReaction: null,
+      };
+      queryClient.setQueryData<Comment[]>(queryKey, (old = []) => {
+        if (parentId) {
+          return old.map(c => c.id === parentId ? { ...c, replies: [...(c.replies || []), optimistic] } : c);
+        }
+        return [optimistic, ...old];
+      });
+      setNewComment(''); setReplyContent(''); setReplyTo(null);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(queryKey, ctx.prev); toast.error('Failed to post comment'); },
+    onSettled: () => { queryClient.invalidateQueries({ queryKey }); },
+    onSuccess: () => { toast.success('Comment posted!'); },
   });
 
   const editComment = useMutation({
@@ -184,27 +219,58 @@ export function CommentSection({ contentType, contentId, seasonNumber, episodeNu
         .eq('id', commentId).eq('user_id', user.id);
       if (error) throw error;
     },
-    onSuccess: () => { setEditingId(null); setEditContent(''); queryClient.invalidateQueries({ queryKey }); toast.success('Comment updated'); },
-    onError: () => { toast.error('Failed to update comment'); },
+    onMutate: async ({ commentId, content }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<Comment[]>(queryKey);
+      queryClient.setQueryData<Comment[]>(queryKey, (old = []) =>
+        updateCommentInTree(old, commentId, c => ({ ...c, content: content.trim(), is_edited: true, updated_at: new Date().toISOString() }))
+      );
+      setEditingId(null); setEditContent('');
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(queryKey, ctx.prev); toast.error('Failed to update comment'); },
+    onSettled: () => { queryClient.invalidateQueries({ queryKey }); },
+    onSuccess: () => { toast.success('Comment updated'); },
   });
 
   const toggleReaction = useMutation({
     mutationFn: async ({ commentId, reactionType, currentReaction }: { commentId: string; reactionType: string; currentReaction: string | null }) => {
       if (!user) throw new Error('Not authenticated');
-
       if (currentReaction) {
-        // Remove existing reaction first
         await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', user.id);
       }
-
       if (currentReaction !== reactionType) {
-        // Add new reaction
-        await supabase.from('comment_likes').insert({
-          comment_id: commentId, user_id: user.id, reaction_type: reactionType,
-        } as any);
+        await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: user.id, reaction_type: reactionType } as any);
       }
     },
-    onSuccess: () => { setShowReactionPicker(null); queryClient.invalidateQueries({ queryKey }); },
+    onMutate: async ({ commentId, reactionType, currentReaction }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<Comment[]>(queryKey);
+      const isRemoving = currentReaction === reactionType;
+      queryClient.setQueryData<Comment[]>(queryKey, (old = []) =>
+        updateCommentInTree(old, commentId, c => {
+          let reactions = [...c.reactions];
+          // Remove old reaction count
+          if (currentReaction) {
+            reactions = reactions.map(r => r.type === currentReaction ? { ...r, count: r.count - 1, hasReacted: false } : r).filter(r => r.count > 0);
+          }
+          // Add new reaction count
+          if (!isRemoving) {
+            const existing = reactions.find(r => r.type === reactionType);
+            if (existing) {
+              reactions = reactions.map(r => r.type === reactionType ? { ...r, count: r.count + 1, hasReacted: true } : r);
+            } else {
+              reactions.push({ type: reactionType, count: 1, hasReacted: true });
+            }
+          }
+          return { ...c, reactions, userReaction: isRemoving ? null : reactionType };
+        })
+      );
+      setShowReactionPicker(null);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(queryKey, ctx.prev); },
+    onSettled: () => { queryClient.invalidateQueries({ queryKey }); },
   });
 
   const deleteComment = useMutation({
@@ -212,7 +278,15 @@ export function CommentSection({ contentType, contentId, seasonNumber, episodeNu
       const { error } = await supabase.from('comments').delete().eq('id', commentId);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey }); toast.success('Comment deleted'); },
+    onMutate: async (commentId) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<Comment[]>(queryKey);
+      queryClient.setQueryData<Comment[]>(queryKey, (old = []) => updateCommentInTree(old, commentId, () => null));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => { if (ctx?.prev) queryClient.setQueryData(queryKey, ctx.prev); toast.error('Failed to delete comment'); },
+    onSettled: () => { queryClient.invalidateQueries({ queryKey }); },
+    onSuccess: () => { toast.success('Comment deleted'); },
   });
 
   const sortedComments = [...comments].sort((a, b) => {
