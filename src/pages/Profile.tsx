@@ -132,10 +132,13 @@ export default function Profile() {
     else item.onClick();
   };
 
-  const bannerStyle = profileData.banner_url
-    ? profileData.banner_url.startsWith('linear-gradient')
-      ? { background: profileData.banner_url }
-      : { backgroundImage: `url(${profileData.banner_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+  const isAnimatedBanner = profileData.banner_url?.startsWith('animated:');
+  const bannerStyle: React.CSSProperties = profileData.banner_url
+    ? isAnimatedBanner
+      ? { background: profileData.banner_url.replace('animated:', ''), backgroundSize: '200% 200%', animation: 'bannerShift 4s ease infinite' }
+      : profileData.banner_url.startsWith('linear-gradient')
+        ? { background: profileData.banner_url }
+        : { backgroundImage: `url(${profileData.banner_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
     : {};
 
   return (
