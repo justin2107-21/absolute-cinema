@@ -105,6 +105,19 @@ export default function Home() {
     setSelectedCategory({ id: genreId, name: genreName });
   };
 
+  // If a category is selected, show category results
+  if (selectedCategory) {
+    return (
+      <AppLayout>
+        <CategoryResults
+          genreId={selectedCategory.id}
+          genreName={selectedCategory.name}
+          onBack={() => setSelectedCategory(null)}
+        />
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="space-y-4">
