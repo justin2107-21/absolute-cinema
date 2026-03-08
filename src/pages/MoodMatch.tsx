@@ -108,6 +108,7 @@ interface LuminaMessage {
   identifiedTitle?: string;
   identifiedType?: 'movie' | 'tv' | 'anime';
   tmdbMetadata?: TmdbMetadata | null;
+  recsVisible?: boolean; // Whether recommendations are currently shown
 }
 
 export default function MoodMatch() {
