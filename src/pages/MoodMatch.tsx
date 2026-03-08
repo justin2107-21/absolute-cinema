@@ -137,13 +137,19 @@ export default function MoodMatch() {
           .from('chat_messages').select('*')
           .eq('conversation_id', conv.id).order('created_at', { ascending: true });
         if (messages) {
-          setChatHistory(messages.map((m) => ({
-            id: m.id,
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-            showRecommendations: m.show_recommendations || false,
-            preferences: m.recommendations as unknown as MoodPreferences | undefined,
-          })));
+          setChatHistory(messages.map((m) => {
+            const meta = (m.recommendations as Record<string, any>) || {};
+            return {
+              id: m.id,
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+              showRecommendations: m.show_recommendations || false,
+              preferences: meta.preferences as MoodPreferences | undefined,
+              imageUrl: meta.imageUrl || undefined,
+              identifiedTitle: meta.identifiedTitle || undefined,
+              identifiedType: meta.identifiedType || undefined,
+            };
+          }));
         }
       }
     } catch (error) {
@@ -154,12 +160,19 @@ export default function MoodMatch() {
   const saveMessage = async (message: LuminaMessage, convId: string) => {
     if (!user) return;
     try {
+      // Store extra metadata (imageUrl, identifiedTitle, identifiedType) in the recommendations JSON
+      const metadata: Record<string, any> = {};
+      if (message.preferences) Object.assign(metadata, { preferences: message.preferences });
+      if (message.imageUrl) metadata.imageUrl = message.imageUrl;
+      if (message.identifiedTitle) metadata.identifiedTitle = message.identifiedTitle;
+      if (message.identifiedType) metadata.identifiedType = message.identifiedType;
+
       await supabase.from('chat_messages').insert({
         conversation_id: convId,
         role: message.role,
         content: message.content,
         show_recommendations: message.showRecommendations || false,
-        recommendations: message.preferences ? (message.preferences as any) : null,
+        recommendations: Object.keys(metadata).length > 0 ? (metadata as any) : null,
       });
     } catch (error) {
       console.error('Error saving message:', error);
