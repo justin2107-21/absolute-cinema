@@ -169,7 +169,7 @@ export default function TVSeries() {
                   movie={adaptTVToMovie(show)} 
                   mediaType="tv"
                   onAddToWatchlist={addToWatchlist} 
-                  onMarkWatched={markAsWatchlist}
+                  onMarkWatched={markAsWatched}
                   onClick={() => navigate(`/tv/${show.id}`)} 
                   isInWatchlist={isInWatchlist(show.id)} 
                   isWatched={isWatched(show.id)} 
