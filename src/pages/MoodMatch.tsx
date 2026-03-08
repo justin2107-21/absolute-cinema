@@ -808,9 +808,8 @@ export default function MoodMatch() {
                 </Button>
               )}
               <div>
-                <motion.h1 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-2xl font-bold flex items-center gap-2">
-                  <Sparkles className="h-6 w-6 text-primary" />
-                  Lumina AI
+                <motion.h1 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-2xl font-bold">
+                  MoodMatch AI
                 </motion.h1>
                 <p className="text-sm text-muted-foreground">
                   Your personal entertainment companion
@@ -840,7 +839,7 @@ export default function MoodMatch() {
                         <Sparkles className="h-4 w-4 text-primary-foreground" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-semibold text-sm">Lumina</p>
+                        <p className="font-semibold text-sm">MoodMatch</p>
                         <p className="text-xs text-muted-foreground">Online • Ready to help</p>
                       </div>
                     </div>
@@ -856,7 +855,7 @@ export default function MoodMatch() {
                             </div>
                             <div className="bg-secondary rounded-2xl rounded-tl-md px-4 py-3 max-w-[85%]">
                               <p className="text-sm leading-relaxed">
-                                Hello! 👋 I'm <strong>Lumina</strong>, your entertainment companion. I can help you:
+                                Hello! 👋 I'm <strong>MoodMatch</strong>, your entertainment companion. I can help you:
                               </p>
                               <div className="mt-2 space-y-1">
                                 <p className="text-sm">🎬 Get personalized recommendations</p>
@@ -1023,7 +1022,7 @@ export default function MoodMatch() {
                                   <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
                                   <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
                                 </div>
-                                <span className="text-sm text-muted-foreground">Lumina is thinking...</span>
+                                <span className="text-sm text-muted-foreground">MoodMatch is thinking...</span>
                               </div>
                             </div>
                           </div>
@@ -1081,7 +1080,7 @@ export default function MoodMatch() {
                         </Button>
                         <Textarea
                           ref={textareaRef}
-                          placeholder="Ask Lumina anything about movies, shows, anime..."
+                          placeholder="Ask MoodMatch anything about movies, shows, anime..."
                           value={chatInput}
                           onChange={handleTextareaChange}
                           onKeyDown={(e) => {
@@ -1113,7 +1112,7 @@ export default function MoodMatch() {
                   <div>
                     <h3 className="font-semibold">Quick Mood Picks (General Suggestions)</h3>
                     <p className="text-xs text-muted-foreground mt-1">
-                      These are general mood-based suggestions. For personalized recommendations, chat with Lumina above.
+                      These are general mood-based suggestions. For personalized recommendations, chat with MoodMatch above.
                     </p>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
