@@ -62,11 +62,11 @@ export default function FriendProfile() {
       setIsLoading(true);
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('user_id, username, avatar_url, bio')
+        .select('*')
         .eq('user_id', userId)
         .single();
 
-      setProfile(profileData as UserProfile | null);
+      setProfile(profileData ? { ...profileData as any, banner_url: (profileData as any)?.banner_url || null } as UserProfile : null);
 
       // Check friend status
       const friendMatch = friends.some(f => f.user_id === userId);
