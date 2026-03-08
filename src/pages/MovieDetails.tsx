@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { 
   ArrowLeft, Star, Clock, Calendar, Plus, Check, Share2
 } from 'lucide-react';
-import { getMovieDetails, getSimilarMovies, getImageUrl } from '@/lib/tmdb';
+import { getMovieDetails, getTVDetails, getSimilarMovies, getImageUrl } from '@/lib/tmdb';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MovieRow } from '@/components/movies/MovieRow';
 import { MovieCard } from '@/components/movies/MovieCard';
@@ -20,21 +20,25 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function MovieDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated } = useAuth();
   const { addToWatchlist, markAsWatched, isInWatchlist, isWatched, getWatchedRating } = useWatchlist();
   const { postActivity } = useFriends();
   const [showRatingModal, setShowRatingModal] = useState(false);
 
+  const isTV = location.pathname.startsWith('/tv/');
+  const contentType = isTV ? 'tv' : 'movie';
+
   const { data: movie, isLoading } = useQuery({
-    queryKey: ['movie', id],
-    queryFn: () => getMovieDetails(Number(id)),
+    queryKey: [contentType, id],
+    queryFn: () => isTV ? getTVDetails(Number(id)) : getMovieDetails(Number(id)),
     enabled: !!id,
   });
 
   const { data: similar } = useQuery({
-    queryKey: ['similar', id],
+    queryKey: ['similar', contentType, id],
     queryFn: () => getSimilarMovies(Number(id)),
-    enabled: !!id,
+    enabled: !!id && !isTV,
   });
 
   const trailer = movie?.videos?.results.find(
@@ -55,16 +59,17 @@ export default function MovieDetails() {
     return (
       <AppLayout hideNav>
         <div className="flex flex-col items-center justify-center min-h-screen">
-          <p className="text-muted-foreground">Movie not found</p>
+          <p className="text-muted-foreground">{isTV ? 'TV Show' : 'Movie'} not found</p>
           <Button onClick={() => navigate(-1)} className="mt-4">Go Back</Button>
         </div>
       </AppLayout>
     );
   }
 
+  const displayTitle = movie.title || movie.name || 'Unknown';
   const backdropUrl = getImageUrl(movie.backdrop_path, 'original');
   const posterUrl = getImageUrl(movie.poster_path, 'w500');
-  const releaseYear = movie.release_date?.split('-')[0];
+  const releaseYear = (movie.release_date || movie.first_air_date)?.split('-')[0];
   const hours = Math.floor((movie.runtime || 0) / 60);
   const minutes = (movie.runtime || 0) % 60;
   const inWatchlist = isInWatchlist(movie.id);
@@ -85,21 +90,21 @@ export default function MovieDetails() {
   const handleRatingSubmit = (rating: number) => {
     setShowRatingModal(false);
     markAsWatched(movie, rating);
-    postActivity('rated', movie.title, posterUrl, String(movie.id), 'tmdb', 'movie', rating);
-    toast.success(`Rated ${movie.title} ${'⭐'.repeat(rating)}`);
+    postActivity('rated', displayTitle, posterUrl, String(movie.id), 'tmdb', contentType, rating);
+    toast.success(`Rated ${displayTitle} ${'⭐'.repeat(rating)}`);
   };
 
   const handleRatingSkip = () => {
     setShowRatingModal(false);
     markAsWatched(movie);
-    postActivity('watched', movie.title, posterUrl, String(movie.id), 'tmdb', 'movie');
-    toast.success(`Marked ${movie.title} as watched`);
+    postActivity('watched', displayTitle, posterUrl, String(movie.id), 'tmdb', contentType);
+    toast.success(`Marked ${displayTitle} as watched`);
   };
 
   const handleAddToWatchlist = () => {
     addToWatchlist(movie);
     if (isAuthenticated && !inWatchlist) {
-      postActivity('watchlist_add', movie.title, posterUrl, String(movie.id), 'tmdb', 'movie');
+      postActivity('watchlist_add', displayTitle, posterUrl, String(movie.id), 'tmdb', contentType);
     }
   };
 
@@ -110,7 +115,7 @@ export default function MovieDetails() {
         onClose={() => setShowRatingModal(false)}
         onSubmit={handleRatingSubmit}
         onSkip={handleRatingSkip}
-        title={movie.title}
+        title={displayTitle}
         posterUrl={posterUrl}
       />
 
@@ -118,7 +123,7 @@ export default function MovieDetails() {
         {/* Hero */}
         <header className="relative min-h-[60vh]">
           <div className="absolute inset-0">
-            {backdropUrl && <img src={backdropUrl} alt={movie.title} className="h-full w-full object-cover" />}
+            {backdropUrl && <img src={backdropUrl} alt={displayTitle} className="h-full w-full object-cover" />}
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
           </div>
           <div className="absolute top-4 left-4 z-20">
@@ -129,10 +134,10 @@ export default function MovieDetails() {
           <div className="relative z-10 flex flex-col justify-end min-h-[60vh] px-4 pb-6">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex gap-4">
               <div className="w-28 h-40 rounded-xl overflow-hidden shadow-2xl flex-shrink-0">
-                {posterUrl ? <img src={posterUrl} alt={movie.title} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-secondary" />}
+                {posterUrl ? <img src={posterUrl} alt={displayTitle} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-secondary" />}
               </div>
               <div className="flex-1 min-w-0 space-y-2">
-                <h1 className="text-2xl font-bold line-clamp-2">{movie.title}</h1>
+                <h1 className="text-2xl font-bold line-clamp-2">{displayTitle}</h1>
                 {movie.tagline && <p className="text-sm text-muted-foreground italic">"{movie.tagline}"</p>}
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
@@ -169,7 +174,7 @@ export default function MovieDetails() {
             </Button>
             <Button variant="glass" className="h-12 w-12 flex-shrink-0" onClick={async () => {
               try {
-                if (navigator.share) await navigator.share({ title: movie.title, url: window.location.href });
+                if (navigator.share) await navigator.share({ title: displayTitle, url: window.location.href });
                 else { await navigator.clipboard.writeText(window.location.href); toast.success('Link copied!'); }
               } catch (e) { console.error(e); }
             }}>
@@ -218,7 +223,7 @@ export default function MovieDetails() {
 
         {/* Comments */}
         <div className="mt-8">
-          <CommentSection contentType="movie" contentId={id || ''} />
+          <CommentSection contentType={contentType} contentId={id || ''} />
         </div>
       </div>
     </AppLayout>
