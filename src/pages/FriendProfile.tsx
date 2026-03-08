@@ -11,6 +11,7 @@ import { useFriends } from '@/hooks/useFriends';
 import { useChat } from '@/hooks/useChat';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { parseAnimatedBanner } from '@/components/profile/BannerSelector';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ interface UserProfile {
   username: string | null;
   avatar_url: string | null;
   bio: string | null;
+  banner_url: string | null;
 }
 
 interface UserActivity {
@@ -60,11 +62,11 @@ export default function FriendProfile() {
       setIsLoading(true);
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('user_id, username, avatar_url, bio')
+        .select('*')
         .eq('user_id', userId)
         .single();
 
-      setProfile(profileData as UserProfile | null);
+      setProfile(profileData ? { ...profileData as any, banner_url: (profileData as any)?.banner_url || null } as UserProfile : null);
 
       // Check friend status
       const friendMatch = friends.some(f => f.user_id === userId);
@@ -165,14 +167,51 @@ export default function FriendProfile() {
   return (
     <AppLayout hideNav>
       <div className="pb-8">
-        {/* Header */}
-        <div className="relative h-32 bg-gradient-to-br from-primary/30 to-accent/20">
-          <div className="absolute top-4 left-4 z-20">
-            <Button variant="glass" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
+        {/* Banner */}
+        {(() => {
+          const animated = profile.banner_url ? parseAnimatedBanner(profile.banner_url) : null;
+          const isGradient = profile.banner_url?.startsWith('linear-gradient');
+          const isCustomImage = profile.banner_url && !animated && !isGradient;
+          const style: React.CSSProperties = isGradient
+            ? { background: profile.banner_url! }
+            : isCustomImage
+              ? { backgroundImage: `url(${profile.banner_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+              : {};
+          return (
+            <div className="relative h-32 bg-gradient-to-br from-primary/30 to-accent/20 overflow-hidden" style={!animated ? style : {}}>
+              {animated && (
+                <img src={animated.image} alt="Banner" className={`absolute inset-0 w-full h-full object-cover banner-anim-${animated.animation}`} />
+              )}
+              <div className="absolute top-4 left-4 z-20">
+                <Button variant="glass" size="icon" onClick={() => navigate(-1)}>
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Banner animation keyframes */}
+        <style>{`
+          @keyframes bannerSlowZoom {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+          }
+          @keyframes bannerSlowPan {
+            0% { transform: scale(1.2) translateX(-5%); }
+            50% { transform: scale(1.2) translateX(5%); }
+            100% { transform: scale(1.2) translateX(-5%); }
+          }
+          @keyframes bannerSlowPulse {
+            0% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.08); filter: brightness(1.15); }
+            100% { transform: scale(1); filter: brightness(1); }
+          }
+          .banner-anim-slowZoom { animation: bannerSlowZoom 12s ease-in-out infinite; }
+          .banner-anim-slowPan { animation: bannerSlowPan 14s ease-in-out infinite; }
+          .banner-anim-slowPulse { animation: bannerSlowPulse 10s ease-in-out infinite; }
+        `}</style>
 
         {/* Profile Info */}
         <div className="px-4 -mt-12 relative z-10">
