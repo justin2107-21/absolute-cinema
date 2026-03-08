@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
+import { lovable } from '@/integrations/lovable/index';
 import logoImage from '@/assets/logo.png';
 
 type AuthMode = 'login' | 'signup';
