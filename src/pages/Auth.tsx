@@ -200,7 +200,7 @@ export default function Auth() {
               <span className="text-primary ml-2">Cinema</span>
             </h1>
             <p className="text-muted-foreground">
-              {mode === 'login' ? 'Welcome back!' : 'Create your account'}
+              {mode === 'login' ? 'Welcome back!' : mode === 'signup' ? 'Create your account' : 'Reset your password'}
             </p>
           </div>
 
@@ -238,28 +238,38 @@ export default function Auth() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-12 pr-12"
-                  required
-                  minLength={6}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
+            {mode !== 'forgot' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-12 pr-12"
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {mode === 'login' && (
+              <div className="text-right">
+                <Button variant="link" className="text-primary p-0 h-auto text-sm" onClick={() => setMode('forgot')}>
+                  Forgot password?
+                </Button>
+              </div>
+            )}
 
             <Button
               type="submit"
@@ -271,8 +281,10 @@ export default function Auth() {
                 <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
               ) : mode === 'login' ? (
                 'Sign In'
-              ) : (
+              ) : mode === 'signup' ? (
                 'Create Account'
+              ) : (
+                'Send Reset Link'
               )}
             </Button>
           </form>
