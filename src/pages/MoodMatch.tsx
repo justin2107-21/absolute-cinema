@@ -623,18 +623,19 @@ export default function MoodMatch() {
                 } as any);
                 toast.success(`Added "${msg.tmdbMetadata.title}" to watchlist!`);
               } else if (msg.tmdbMetadata) {
-                addToWatchlist({
-                  id: msg.tmdbMetadata.tmdbId,
+                const item: WatchlistItem = {
+                  id: `tmdb-${msg.tmdbMetadata.mediaType}-${msg.tmdbMetadata.tmdbId}`,
+                  source: 'tmdb',
+                  mediaType: msg.tmdbMetadata.mediaType === 'tv' ? 'tv' : 'movie',
+                  sourceId: msg.tmdbMetadata.tmdbId,
                   title: msg.tmdbMetadata.title,
-                  poster_path: msg.tmdbMetadata.posterPath,
-                  overview: msg.tmdbMetadata.overview,
-                  release_date: msg.tmdbMetadata.firstAirDate || '',
-                  vote_average: msg.tmdbMetadata.voteAverage,
-                  vote_count: 0,
-                  genre_ids: [],
-                  popularity: 0,
-                  backdrop_path: msg.tmdbMetadata.backdropPath,
-                } as any, msg.tmdbMetadata.mediaType);
+                  posterUrl: msg.tmdbMetadata.posterPath
+                    ? `https://image.tmdb.org/t/p/w500${msg.tmdbMetadata.posterPath}`
+                    : null,
+                  voteAverage: msg.tmdbMetadata.voteAverage,
+                  releaseDate: msg.tmdbMetadata.firstAirDate || undefined,
+                };
+                addToWatchlist(item);
                 toast.success(`Added "${msg.tmdbMetadata.title}" to watchlist!`);
               }
             }}
