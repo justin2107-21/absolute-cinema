@@ -11,7 +11,7 @@ import { useFriends } from '@/hooks/useFriends';
 import { useChat } from '@/hooks/useChat';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
-import { parseAnimatedBanner } from '@/components/profile/BannerSelector';
+import { parseAnimatedBanner, isVideoBanner, getVideoBannerUrl } from '@/components/profile/BannerSelector';
 import {
   AlertDialog,
   AlertDialogAction,

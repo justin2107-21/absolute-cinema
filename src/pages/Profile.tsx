@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SignInModal } from '@/components/auth/SignInModal';
 import { ImageCropModal } from '@/components/profile/ImageCropModal';
-import { BannerSelector } from '@/components/profile/BannerSelector';
+import { BannerSelector, parseAnimatedBanner, isVideoBanner, getVideoBannerUrl } from '@/components/profile/BannerSelector';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { useFriends } from '@/hooks/useFriends';
 import { useAuth } from '@/contexts/AuthContext';
