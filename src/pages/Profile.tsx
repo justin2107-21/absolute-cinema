@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Settings, LogOut, Bookmark, Check, Users, ChevronRight, Film, Edit3, Camera, ImageIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Settings, LogOut, Bookmark, Check, Users, ChevronRight, Film, Edit3, ImageIcon, X, Download, Camera } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,10 @@ export default function Profile() {
   const [editData, setEditData] = useState({ username: '', bio: '' });
   const [showBannerSelector, setShowBannerSelector] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [showAvatarViewer, setShowAvatarViewer] = useState(false);
+  const [avatarLongPressTimer, setAvatarLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [showAvatarActions, setShowAvatarActions] = useState(false);
+  const avatarFileRef = useState<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setProfileData(prev => ({ ...prev, avatar_url: avatarUrl }));
@@ -231,19 +235,36 @@ export default function Profile() {
                 {profileLoading ? (
                   <Skeleton className="h-20 w-20 rounded-full" />
                 ) : (
-                  <Avatar className="h-20 w-20 border-4 border-card shadow-xl">
-                    <AvatarImage src={profileData.avatar_url || undefined} />
-                    <AvatarFallback className="text-xl bg-primary/20">
-                      {(profileData.username || 'G').charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <button
+                    className="block rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+                    onClick={() => {
+                      if (profileData.avatar_url) setShowAvatarViewer(true);
+                    }}
+                    onTouchStart={() => {
+                      if (!isAuthenticated) return;
+                      const timer = setTimeout(() => setShowAvatarActions(true), 500);
+                      setAvatarLongPressTimer(timer);
+                    }}
+                    onTouchEnd={() => {
+                      if (avatarLongPressTimer) clearTimeout(avatarLongPressTimer);
+                      setAvatarLongPressTimer(null);
+                    }}
+                    onContextMenu={(e) => {
+                      if (isAuthenticated) {
+                        e.preventDefault();
+                        setShowAvatarActions(true);
+                      }
+                    }}
+                  >
+                    <Avatar className="h-20 w-20 border-4 border-card shadow-xl">
+                      <AvatarImage src={profileData.avatar_url || undefined} />
+                      <AvatarFallback className="text-xl bg-primary/20">
+                        {(profileData.username || 'G').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
                 )}
-                {isAuthenticated && (
-                  <label className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary flex items-center justify-center cursor-pointer border-2 border-card">
-                    <Camera className="h-3.5 w-3.5 text-primary-foreground" />
-                    <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleAvatarSelect} />
-                  </label>
-                )}
+                <input type="file" accept="image/png,image/jpeg" className="hidden" id="avatar-file-input" onChange={handleAvatarSelect} />
               </div>
             </div>
 
