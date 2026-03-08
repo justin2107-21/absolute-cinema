@@ -159,6 +159,31 @@ const moodToAniListGenres: Record<string, string[]> = {
 
 async function anilistFetch<T>(query: string, variables: Record<string, unknown> = {}): Promise<T | null> {
   try {
+    // Use edge function proxy to avoid CORS issues
+    const { data: proxyData, error: proxyError } = await supabase.functions.invoke('anilist-proxy', {
+      body: { query, variables },
+    });
+
+    if (proxyError) {
+      console.error('AniList proxy error, falling back to direct:', proxyError);
+      // Fallback to direct fetch
+      return await anilistFetchDirect<T>(query, variables);
+    }
+
+    if (proxyData?.errors?.length) {
+      console.error('AniList GraphQL error:', proxyData.errors);
+      return null;
+    }
+
+    return proxyData?.data ?? null;
+  } catch (error) {
+    console.error('AniList proxy failed, trying direct:', error);
+    return await anilistFetchDirect<T>(query, variables);
+  }
+}
+
+async function anilistFetchDirect<T>(query: string, variables: Record<string, unknown> = {}): Promise<T | null> {
+  try {
     const response = await fetch(ANILIST_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
