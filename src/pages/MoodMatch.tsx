@@ -18,7 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { getMoviesByMood } from '@/lib/tmdb';
 import { getAnimeByMood, getMangaByMood, type AniListMedia } from '@/lib/anilist';
 import { getMoodRecommendations, type MoodPreferences, type MoodRecommendations } from '@/lib/moodRecommendations';
-import { useWatchlist } from '@/hooks/useWatchlist';
+import { useWatchlist, type WatchlistItem } from '@/hooks/useWatchlist';
 import { useNavigate } from 'react-router-dom';
 import { useMood } from '@/contexts/MoodContext';
 import { useAuth } from '@/contexts/AuthContext';
