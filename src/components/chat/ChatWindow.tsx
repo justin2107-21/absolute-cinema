@@ -180,9 +180,9 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
   const lastOwnMsg = lastOwnMsgIdx >= 0 ? messages[messages.length - 1 - lastOwnMsgIdx] : null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: chatTheme.chatBg }}>
       {/* Header */}
-      <div className="flex items-center gap-3 p-3 border-b border-border bg-background/80 backdrop-blur-sm safe-top">
+      <div className="flex items-center gap-3 p-3 border-b backdrop-blur-sm safe-top" style={{ background: chatTheme.headerBg, borderBottomColor: chatTheme.headerBorderColor }}>
         <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={onBack}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -316,7 +316,7 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
             <div key={msg.id}>
               {showDate && (
                 <div className="flex justify-center my-3">
-                  <span className="text-[10px] text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">{dateLabel}</span>
+                  <span className="text-[10px] px-3 py-1 rounded-full" style={{ background: chatTheme.dateBadgeBg, color: chatTheme.dateBadgeText }}>{dateLabel}</span>
                 </div>
               )}
               <motion.div
@@ -378,7 +378,7 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
       <AnimatePresence>
         {showEmoji && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-            className="px-3 py-2 border-t border-border bg-background">
+            className="px-3 py-2 border-t" style={{ background: chatTheme.inputBg, borderTopColor: chatTheme.inputBorderColor }}>
             <div className="flex flex-wrap gap-2">
               {EMOJI_LIST.map(e => (
                 <button key={e} onClick={() => { setNewMessage(prev => prev + e); setShowEmoji(false); }}
@@ -390,7 +390,7 @@ export function ChatWindow({ conversationId, otherUser, onBack }: ChatWindowProp
       </AnimatePresence>
 
       {/* Input bar */}
-      <div className="p-3 border-t border-border bg-background/80 backdrop-blur-sm flex items-center gap-1.5 safe-bottom relative">
+      <div className="p-3 border-t backdrop-blur-sm flex items-center gap-1.5 safe-bottom relative" style={{ background: chatTheme.inputBg, borderTopColor: chatTheme.inputBorderColor }}>
         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'image')} />
         <input ref={fileInputRef} type="file" className="hidden" onChange={e => handleFileUpload(e, 'file')} />
 
