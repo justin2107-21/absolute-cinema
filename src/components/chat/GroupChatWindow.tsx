@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Send, Users, X, Paperclip, Image as ImageIcon, Smile } from 'lucide-react';
+import { ArrowLeft, Send, Users, X, Paperclip, Image as ImageIcon, Smile, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { GifPicker } from './GifPicker';
+import { ChatThemePicker, getChatTheme, type ChatTheme } from './ChatThemePicker';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChat } from '@/hooks/useChat';
@@ -49,6 +50,8 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
   const [sending, setSending] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showGif, setShowGif] = useState(false);
+  const [showThemes, setShowThemes] = useState(false);
+  const [chatTheme, setChatThemeState] = useState<ChatTheme>(() => getChatTheme(groupId));
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -157,9 +160,12 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
   let lastDate = '';
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: chatTheme.chatBg }}>
       {/* Header */}
-      <div className="flex items-center gap-3 p-3 border-b border-border bg-background/80 backdrop-blur-sm safe-top">
+      <div
+        className="flex items-center gap-3 p-3 border-b backdrop-blur-sm safe-top"
+        style={{ background: chatTheme.headerBg, borderBottomColor: chatTheme.headerBorderColor }}
+      >
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onBack}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -175,9 +181,27 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
           </SheetTrigger>
           <SheetContent side="right" className="w-72 p-0">
             <SheetHeader className="p-4 border-b border-border">
-              <SheetTitle className="text-sm">Members</SheetTitle>
+              <SheetTitle className="text-sm">Group Settings</SheetTitle>
             </SheetHeader>
-            <div className="p-3 space-y-2">
+            <div className="p-3 space-y-3">
+              {/* Theme picker */}
+              <button
+                onClick={() => setShowThemes(!showThemes)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors text-sm"
+              >
+                <Palette className="h-4 w-4 text-muted-foreground" /> Themes
+              </button>
+              {showThemes && (
+                <div className="px-1 pb-2">
+                  <ChatThemePicker
+                    conversationId={groupId}
+                    currentThemeId={chatTheme.id}
+                    onSelect={(theme) => setChatThemeState(theme)}
+                  />
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground font-medium px-1 pt-1">Members</p>
               {members.map(m => (
                 <div key={m.user_id} className="flex items-center gap-2.5 p-2 rounded-xl">
                   <Avatar className="h-8 w-8">
@@ -203,7 +227,9 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-1">
         {messages.length === 0 && (
-          <div className="text-center text-sm text-muted-foreground py-8">No messages yet. Start the conversation!</div>
+          <div className="text-center text-sm py-8" style={{ color: chatTheme.dateBadgeText }}>
+            No messages yet. Start the conversation!
+          </div>
         )}
         {messages.map(msg => {
           const isMine = msg.sender_id === user?.id;
@@ -214,7 +240,12 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
             <div key={msg.id}>
               {showDateLabel && (
                 <div className="flex justify-center my-3">
-                  <span className="text-[10px] text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">{dateStr}</span>
+                  <span
+                    className="text-[10px] px-3 py-1 rounded-full"
+                    style={{ background: chatTheme.dateBadgeBg, color: chatTheme.dateBadgeText }}
+                  >
+                    {dateStr}
+                  </span>
                 </div>
               )}
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`flex ${isMine ? 'justify-end' : 'justify-start'} mb-1`}>
@@ -225,8 +256,16 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
                   </Avatar>
                 )}
                 <div className="max-w-[70%]">
-                  {!isMine && <p className="text-[10px] text-muted-foreground ml-1 mb-0.5">{msg.sender_name}</p>}
-                  <div className={`px-3 py-2 rounded-2xl text-sm ${isMine ? 'bg-primary text-primary-foreground rounded-br-sm' : 'bg-secondary text-foreground rounded-bl-sm'}`}>
+                  {!isMine && (
+                    <p className="text-[10px] ml-1 mb-0.5" style={{ color: chatTheme.dateBadgeText }}>
+                      {msg.sender_name}
+                    </p>
+                  )}
+                  <div className={`px-3 py-2 rounded-2xl text-sm ${
+                    isMine
+                      ? `${chatTheme.sentBubble} ${chatTheme.sentText} rounded-br-sm`
+                      : `${chatTheme.receivedBubble} ${chatTheme.receivedText} rounded-bl-sm`
+                  }`}>
                     {(msg.message_type === 'image' || msg.message_type === 'gif') && msg.file_url ? (
                       <img src={msg.file_url} alt="" className="rounded-lg max-w-full max-h-48 object-cover" />
                     ) : msg.message_type === 'file' && msg.file_url ? (
@@ -237,7 +276,10 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
                       <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                     )}
                   </div>
-                  <p className={`text-[9px] text-muted-foreground mt-0.5 ${isMine ? 'text-right' : ''}`}>
+                  <p
+                    className={`text-[9px] mt-0.5 ${isMine ? 'text-right' : ''}`}
+                    style={{ color: chatTheme.dateBadgeText }}
+                  >
                     {format(new Date(msg.created_at), 'h:mm a')}
                   </p>
                 </div>
@@ -249,7 +291,10 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
 
       {/* Emoji picker */}
       {showEmoji && (
-        <div className="px-3 py-2 border-t border-border bg-background">
+        <div
+          className="px-3 py-2 border-t"
+          style={{ background: chatTheme.inputBg, borderTopColor: chatTheme.inputBorderColor }}
+        >
           <div className="flex flex-wrap gap-2">
             {EMOJI_LIST.map(e => (
               <button key={e} onClick={() => { setNewMessage(prev => prev + e); setShowEmoji(false); }}
@@ -260,7 +305,10 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
       )}
 
       {/* Input */}
-      <div className="p-3 border-t border-border flex items-center gap-1.5 safe-bottom relative">
+      <div
+        className="p-3 border-t flex items-center gap-1.5 safe-bottom relative"
+        style={{ background: chatTheme.inputBg, borderTopColor: chatTheme.inputBorderColor }}
+      >
         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'image')} />
         <input ref={fileInputRef} type="file" className="hidden" onChange={e => handleFileUpload(e, 'file')} />
         <GifPicker open={showGif} onClose={() => setShowGif(false)} onSelect={handleGifSelect} />
@@ -279,7 +327,7 @@ export function GroupChatWindow({ groupId, groupName, onBack }: GroupChatWindowP
         </Button>
 
         <Input value={newMessage} onChange={e => setNewMessage(e.target.value.slice(0, 2000))} placeholder="Message..."
-          className="flex-1 h-9 text-sm" onKeyDown={e => e.key === 'Enter' && handleSend()} maxLength={2000} />
+          className="flex-1 h-9 text-sm bg-transparent border-white/10" onKeyDown={e => e.key === 'Enter' && handleSend()} maxLength={2000} />
         <Button size="icon" className="h-9 w-9" onClick={handleSend} disabled={!newMessage.trim() || sending}>
           <Send className="h-4 w-4" />
         </Button>
