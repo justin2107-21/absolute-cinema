@@ -1,0 +1,10 @@
+{
+  "appId": "com.absolutecinema.app",
+  "appName": "Absolute Cinema",
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false
+    }
+  }
+}
